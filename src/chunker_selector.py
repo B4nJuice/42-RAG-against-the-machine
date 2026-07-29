@@ -1,9 +1,10 @@
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_text_splitters.base import Language
+from langchain_core.documents import Document
 from typing import Any
 
 LANGUAGE_PARAMS = {
-    Language.PYTHON: {"chunk_size": 500, "chunk_overlap": 100},
+    Language.PYTHON: {"chunk_size": 1000, "chunk_overlap": 100},
     "default": {"chunk_size": 2000, "chunk_overlap": 100}
 }
 
@@ -42,26 +43,35 @@ class ChunkerSelector:
 
         language_params: dict[str, Any] = LANGUAGE_PARAMS.get(language)
         chunker = RecursiveCharacterTextSplitter().from_language(
-                language, **language_params
+                language, **language_params, add_start_index=True
             )
 
         self.chunkers.update({language: chunker})
 
         return chunker
 
-    def split_text(self, file_path: str) -> list[str]:
+    def split_text(self, file_path: str) -> list[Document]:
         chunker: RecursiveCharacterTextSplitter = self.get_or_create_chunker(
                 file_path
             )
 
         with open(file_path) as f:
             file_content = f.read()
-            splitted_text: list[str] = chunker.split_text(file_content)
+            documents: Document = chunker.create_documents([file_content])
 
-        return splitted_text
+        return documents
 
 
 if __name__ == "__main__":
     selector = ChunkerSelector()
-    text = selector.split_text("./data/raw/vllm-0.10.1/tests/basic_correctness/test_basic_correctness.py")
-    print("\n".join(text))
+    docs = selector.split_text("./data/raw/vllm-0.10.1/tests/basic_correctness/test_basic_correctness.py")
+    for doc in docs:
+        chunk_len = len(doc.page_content)
+        print(doc.metadata)
+        start_index = doc.metadata.get("start_index", 0)
+        end_index = start_index + chunk_len
+        print(f"start {start_index} end {end_index}")
+        print(doc.page_content)
+        print("\n"*5)
+    
+    # print("\n".join(text))
