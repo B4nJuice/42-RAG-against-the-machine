@@ -3,9 +3,16 @@ from langchain_text_splitters.base import Language
 from langchain_core.documents import Document
 from chunk import Chunk
 from typing import Any
+from os import walk
 
 LANGUAGE_PARAMS = {
     Language.PYTHON: {"chunk_size": 1000, "chunk_overlap": 100},
+    Language.CPP: {"chunk_size": 1000, "chunk_overlap": 100},
+    Language.JAVA: {"chunk_size": 1000, "chunk_overlap": 100},
+    Language.PHP: {"chunk_size": 1000, "chunk_overlap": 100},
+    Language.MARKDOWN: {"chunk_size": 1000, "chunk_overlap": 100},
+    Language.HTML: {"chunk_size": 1000, "chunk_overlap": 100},
+    Language.C: {"chunk_size": 1000, "chunk_overlap": 100},
     "default": {"chunk_size": 2000, "chunk_overlap": 100}
 }
 
@@ -24,8 +31,12 @@ class ChunkerSelector:
         self.chunkers: dict[Language | str, RecursiveCharacterTextSplitter] =\
             {}
 
+    @staticmethod
+    def get_suffix(file_name: str) -> str:
+        return file_name.split(".")[-1]
+
     def get_language(self, file_path: str) -> Language | str:
-        file_suffix: str = file_path.split(".")[-1]
+        file_suffix: str = self.get_suffix(file_path)
         language : Language | str = LANGUAGE_TRANSLATION.get(
                 file_suffix,
                 "default"
@@ -40,7 +51,6 @@ class ChunkerSelector:
 
         if language in self.chunkers:
             return self.chunkers.get(language)
-
 
         language_params: dict[str, Any] = LANGUAGE_PARAMS.get(language)
         chunker = RecursiveCharacterTextSplitter().from_language(
@@ -70,12 +80,27 @@ class ChunkerSelector:
 
         return chunks
 
+    def folder_chunking(self, folder_path: str) -> list[Chunk]:
+        chunks: list[Chunk] = []
+
+        for (dirpath, _, filenames) in walk(folder_path):
+            for file_name in filenames:
+                suffix: str = self.get_suffix(file_name)
+                if suffix not in LANGUAGE_TRANSLATION.keys():
+                    continue
+                chunks += self.split_text(f"{dirpath}/{file_name}")
+
+        return chunks
 
 if __name__ == "__main__":
     selector = ChunkerSelector()
-    chunks = selector.split_text("./data/raw/vllm-0.10.1/tests/basic_correctness/test_basic_correctness.py")
+    chunks = selector.folder_chunking("./data/raw/vllm-0.10.1")
+    # chunks = selector.split_text("./data/raw/vllm-0.10.1/tests/basic_correctness/test_basic_correctness.py")
 
-    for c in chunks:
-        print(c.start_index)
+    # for c in chunks:
+        # print(c.start_index)
+        # print(c.file_path)
+
+    print(len(chunks))
 
     # print("\n".join(text))
