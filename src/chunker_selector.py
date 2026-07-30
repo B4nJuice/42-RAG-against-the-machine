@@ -1,6 +1,7 @@
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_text_splitters.base import Language
 from langchain_core.documents import Document
+from chunk import Chunk
 from typing import Any
 
 LANGUAGE_PARAMS = {
@@ -50,7 +51,7 @@ class ChunkerSelector:
 
         return chunker
 
-    def split_text(self, file_path: str) -> list[Document]:
+    def split_text(self, file_path: str) -> list[Chunk]:
         chunker: RecursiveCharacterTextSplitter = self.get_or_create_chunker(
                 file_path
             )
@@ -59,19 +60,22 @@ class ChunkerSelector:
             file_content = f.read()
             documents: Document = chunker.create_documents([file_content])
 
-        return documents
+        chunks: list[Chunk] = []
+
+        for doc in documents:
+            start_index = doc.metadata.get("start_index", 0)
+            end_index = start_index + len(doc.page_content)
+            chunk = Chunk(file_path, doc.page_content, start_index, end_index)
+            chunks.append(chunk)
+
+        return chunks
 
 
 if __name__ == "__main__":
     selector = ChunkerSelector()
-    docs = selector.split_text("./data/raw/vllm-0.10.1/tests/basic_correctness/test_basic_correctness.py")
-    for doc in docs:
-        chunk_len = len(doc.page_content)
-        print(doc.metadata)
-        start_index = doc.metadata.get("start_index", 0)
-        end_index = start_index + chunk_len
-        print(f"start {start_index} end {end_index}")
-        print(doc.page_content)
-        print("\n"*5)
-    
+    chunks = selector.split_text("./data/raw/vllm-0.10.1/tests/basic_correctness/test_basic_correctness.py")
+
+    for c in chunks:
+        print(c.start_index)
+
     # print("\n".join(text))
