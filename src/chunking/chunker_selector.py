@@ -1,7 +1,7 @@
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_text_splitters.base import Language
 from langchain_core.documents import Document
-from chunk import Chunk
+from .chunk import Chunk
 from typing import Any
 from os import walk
 
@@ -92,15 +92,3 @@ class ChunkerSelector:
 
         return chunks
 
-if __name__ == "__main__":
-    selector = ChunkerSelector()
-    chunks = selector.folder_chunking("./data/raw/vllm-0.10.1")
-    # chunks = selector.split_text("./data/raw/vllm-0.10.1/tests/basic_correctness/test_basic_correctness.py")
-
-    # for c in chunks:
-        # print(c.start_index)
-        # print(c.file_path)
-
-    print(len(chunks))
-
-    # print("\n".join(text))

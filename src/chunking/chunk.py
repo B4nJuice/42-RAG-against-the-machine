@@ -1,3 +1,8 @@
+from functools import lru_cache
+from collections import Counter
+import re
+import unicodedata
+
 class Chunk:
     def __init__(
                 self,
@@ -10,3 +15,39 @@ class Chunk:
         self.content: str = content
         self.start_index: int = start_index
         self.end_index: int = end_index
+
+    @property
+    @lru_cache
+    def tokenized_content(self) -> list[str]:
+        text = unicodedata.normalize("NFKC", self.content)
+
+        raw_tokens = re.findall(r"[A-Za-z0-9_]+", text)
+
+        tokens = []
+
+        for token in raw_tokens:
+            lower_token = token.lower()
+            tokens.append(lower_token)
+
+            for part in token.split("_"):
+                if part:
+                    tokens.append(part.lower())
+
+            parts = re.findall(
+                r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|$)|[0-9]+",
+                token
+            )
+
+            tokens.extend(
+                part.lower()
+                for part in parts
+                if part.lower() != lower_token
+            )
+
+        return tokens
+
+
+    @property
+    @lru_cache
+    def df(self) -> Counter:
+        return Counter(self.tokenized_content)
