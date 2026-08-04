@@ -16,10 +16,9 @@ class Chunk:
         self.start_index: int = start_index
         self.end_index: int = end_index
 
-    @property
-    @lru_cache
-    def tokenized_content(self) -> list[str]:
-        text = unicodedata.normalize("NFKC", self.content)
+    @staticmethod
+    def tokenize(content: str) -> list[str]:
+        text = unicodedata.normalize("NFKC", content)
 
         raw_tokens = re.findall(r"[A-Za-z0-9_]+", text)
 
@@ -46,8 +45,17 @@ class Chunk:
 
         return tokens
 
+    @property
+    @lru_cache
+    def tokenized_content(self) -> list[str]:
+        return self.tokenize(self.content)
 
     @property
     @lru_cache
     def df(self) -> Counter:
         return Counter(self.tokenized_content)
+
+    @property
+    @lru_cache
+    def len(self) -> int:
+        return len(self.content)

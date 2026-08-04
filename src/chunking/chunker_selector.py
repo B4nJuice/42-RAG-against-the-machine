@@ -6,17 +6,18 @@ from typing import Any
 from os import walk
 
 LANGUAGE_PARAMS = {
-    Language.PYTHON: {"chunk_size": 1000, "chunk_overlap": 100},
-    Language.CPP: {"chunk_size": 1000, "chunk_overlap": 100},
-    Language.JAVA: {"chunk_size": 1000, "chunk_overlap": 100},
-    Language.PHP: {"chunk_size": 1000, "chunk_overlap": 100},
-    Language.MARKDOWN: {"chunk_size": 1000, "chunk_overlap": 100},
-    Language.HTML: {"chunk_size": 1000, "chunk_overlap": 100},
-    Language.C: {"chunk_size": 1000, "chunk_overlap": 100},
-    "default": {"chunk_size": 2000, "chunk_overlap": 100}
+    Language.PYTHON: {"chunk_size": 2000, "chunk_overlap": 200},
+    Language.CPP: {"chunk_size": 2000, "chunk_overlap": 200},
+    Language.JAVA: {"chunk_size": 2000, "chunk_overlap": 200},
+    Language.PHP: {"chunk_size": 2000, "chunk_overlap": 200},
+    Language.MARKDOWN: {"chunk_size": 2000, "chunk_overlap": 200},
+    Language.HTML: {"chunk_size": 2000, "chunk_overlap": 200},
+    Language.C: {"chunk_size": 2000, "chunk_overlap": 200},
+    "default": {"chunk_size": 2000, "chunk_overlap": 200}
 }
 
 LANGUAGE_TRANSLATION = {
+    "txt" : "default",
     "py" : Language.PYTHON,
     "cpp" : Language.CPP,
     "java" : Language.JAVA,
@@ -53,9 +54,16 @@ class ChunkerSelector:
             return self.chunkers.get(language)
 
         language_params: dict[str, Any] = LANGUAGE_PARAMS.get(language)
-        chunker = RecursiveCharacterTextSplitter().from_language(
-                language, **language_params, add_start_index=True
-            )
+
+        if isinstance(language, str):
+            chunker = RecursiveCharacterTextSplitter(
+                    **language_params,
+                    add_start_index=True
+                )
+        else:
+            chunker = RecursiveCharacterTextSplitter().from_language(
+                    language, **language_params, add_start_index=True
+                )
 
         self.chunkers.update({language: chunker})
 
