@@ -1,61 +1,114 @@
 from chunking.chunk import Chunk
 from collections import Counter
 from math import log
-from functools import lru_cache
+import numpy as np
 
-class BM25():
+
+class BM25:
     def __init__(
-                self, chunks: list[Chunk],
-                k: float = 1.2,
-                b: float = 0.75,
-                l: float = 1
-            ) -> None:
-        self.chunks: list[Chunk] = chunks
+        self,
+        chunks: list[Chunk],
+        k: float = 1.2,
+        b: float = 0.75,
+        l: float = 1,
+    ) -> None:
+        self.chunks = chunks
         self.global_df: Counter = Counter()
+
         self.k = k
         self.b = b
         self.l = l
-        self.avg_len: float = 1
-        self.n_chunks: int = len(chunks)
 
-    def get_best_chunk(self, query : str) -> tuple[float, Chunk | None]:
-        chunks: dict[Chunk, float] = {}
-        for c in self.chunks:
-            chunks.update({c: self.get_score(query, c)})
+        self.avg_len = 1.0
+        self.n_chunks = len(chunks)
 
-        return chunks
+        self.inverted_index: dict[
+            str,
+            list[tuple[int, int]],
+        ] = {}
 
-    def get_score(self, query: str, chunk: Chunk) -> float:
-        tokenized_query: list[str] = Chunk.tokenize(query)
-        total_score: float = 0
-        for token in tokenized_query:
-            total_score += self.compute_tf(token, chunk)\
-                * self.compute_idf(query, chunk)
+        self.compared_lens = np.empty(
+            self.n_chunks,
+            dtype=np.float32,
+        )
 
-        return total_score
-
-    @lru_cache(maxsize=None)
-    def compute_tf(self, token: str, chunk: Chunk) -> float:
-        token_freq: int = chunk.df.get(token, 0)
-        compared_len: float = self.k * (1 - self.b + self.b * chunk.len / self.avg_len)
-
-        tf_score = token_freq / (token_freq + self.k*compared_len)
-
-        if self.l > 0:
-            token_length_boost = 1 + self.l * log(len(token) + 1)
-            tf_score *= token_length_boost
-        
-        return tf_score
-
-    @lru_cache(maxsize=None)
-    def compute_idf(self, query: str, chunk: Chunk) -> float:
-        n_query: int = self.global_df.get(query, 0)
-        return log((self.n_chunks - n_query + 0.5)/(n_query + 0.5))
+        self.token_boost: dict[str, float] = {}
 
     def compute_stats(self) -> None:
-        total_len: int = 0
-        for c in self.chunks:
-            self.global_df.update(c.df.keys())
-            total_len += c.len
+        total_len = 0
+
+        for i, chunk in enumerate(self.chunks):
+            self.global_df.update(chunk.df.keys())
+            total_len += chunk.len
+
+            for token, tf in chunk.df.items():
+                self.inverted_index.setdefault(
+                    token,
+                    [],
+                ).append((i, tf))
 
         self.avg_len = total_len / self.n_chunks
+
+        self._compute_parameter_stats()
+
+    def _compute_parameter_stats(self) -> None:
+        lengths = np.array(
+            [chunk.len for chunk in self.chunks],
+            dtype=np.float32,
+        )
+
+        self.compared_lens = (
+            self.k
+            * (
+                1
+                - self.b
+                + self.b * lengths / self.avg_len
+            )
+        )
+
+        self.token_boost = {
+            token: 1 + self.l * log(len(token) + 1)
+            for token in self.global_df
+        }
+
+    def compute_idf(self, token: str) -> float:
+        n_token = self.global_df.get(token, 0)
+
+        return log(
+            (self.n_chunks - n_token + 0.5)
+            / (n_token + 0.5)
+        )
+
+    def get_best_chunk(self, query: str) -> np.ndarray:
+        tokens = set(Chunk.tokenize(query))
+
+        scores = np.zeros(
+            self.n_chunks,
+            dtype=np.float32,
+        )
+
+        for token in tokens:
+            postings = self.inverted_index.get(token)
+
+            if not postings:
+                continue
+
+            idf = self.compute_idf(token)
+            boost = self.token_boost[token]
+
+            for chunk_index, tf in postings:
+                compared_len = self.compared_lens[
+                    chunk_index
+                ]
+
+                tf_score = tf / (
+                    tf + compared_len
+                )
+
+                tf_score *= boost
+
+                scores[chunk_index] += (
+                    tf_score * idf
+                )
+
+        return scores

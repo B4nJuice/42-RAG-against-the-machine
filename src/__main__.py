@@ -1,7 +1,8 @@
-import json
-from pathlib import Path
 from chunking.chunker_selector import ChunkerSelector
 from indexing.bm25 import BM25
+from pathlib import Path
+import numpy as np 
+import json
 
 
 def normalize_path(path: str) -> str:
@@ -15,25 +16,21 @@ def normalize_path(path: str) -> str:
     return p.as_posix().lstrip("./")
 
 def evaluate_bm25_on_dataset():
-    """Évalue le BM25 sur toutes les questions du dataset et affiche les statistiques."""
     
-    # Charger les données
     selector = ChunkerSelector()
     chunks = selector.folder_chunking("./data/raw/vllm-0.10.1")
     
-    # Initialiser BM25
     bm25 = BM25(chunks, b=0.6, k=1.2, l=0.9)
     bm25.compute_stats()
     print(bm25.n_chunks)
     
-    # Charger le dataset de questions
-    with open("./data/public/AnsweredQuestions/dataset_code_public.json", "r") as f:
+    with open("./data/public/AnsweredQuestions/dataset_docs_public.json", "r") as f:
         dataset = json.load(f)
     
     questions = dataset["rag_questions"]
     
-    rankings = []  # Liste des positions du chunk correct
-    successes = 0  # Nombre de fois où le chunk correct est trouvé
+    rankings = []
+    successes = 0
     
     for idx, q in enumerate(questions):
         question = q["question"]
@@ -42,12 +39,25 @@ def evaluate_bm25_on_dataset():
             for source in q.get("sources", [])
             if source.get("file_path")
         }
-        
-        # Obtenir les chunks classés par score
+
         scores = bm25.get_best_chunk(question)
-        ranked_chunks = sorted(scores, key=lambda x: -scores[x])
+
+        top_k = min(10, len(scores))
+
+        indices = np.argpartition(
+            scores,
+            -top_k,
+        )[-top_k:]
+
+        indices = indices[
+            np.argsort(scores[indices])[::-1]
+        ]
+
+        ranked_chunks = [
+            bm25.chunks[i]
+            for i in indices
+        ]
         
-        # Trouver la position du chunk attendu
         position = None
         for rank, chunk in enumerate(ranked_chunks):
             chunk_path = normalize_path(chunk.file_path)
@@ -68,7 +78,6 @@ def evaluate_bm25_on_dataset():
                 f"(attendu: {expected_preview}, top-1: {top_path})"
             )
     
-    # Calculer les statistiques
     if rankings:
         avg_ranking = sum(rankings) / len(rankings)
         success_rate = (successes / len(questions)) * 100
@@ -80,30 +89,20 @@ def evaluate_bm25_on_dataset():
         top10_rate = (top10_successes / len(questions)) * 100
         
         print("\n" + "="*60)
-        print(f"RÉSULTATS:")
-        print(f"  Nombre de questions: {len(questions)}")
-        print(f"  Classement moyen: {avg_ranking:.2f}")
-        print(f"  Taux de réussite (top-1): {success_rate:.2f}%")
-        print(f"  Succès (top-1): {successes}/{len(questions)}")
-        print(f"  Taux de réussite (top-3): {top3_rate:.2f}%")
-        print(f"  Succès (top-3): {top3_successes}/{len(questions)}")
-        print(f"  Taux de réussite (top-5): {top5_rate:.2f}%")
-        print(f"  Succès (top-5): {top5_successes}/{len(questions)}")
-        print(f"  Taux de réussite (top-10): {top10_rate:.2f}%")
-        print(f"  Succès (top-10): {top10_successes}/{len(questions)}")
+        print(f"RESULTS:")
+        print(f"  Questions: {len(questions)}")
+        print(f"  Average ranking: {avg_ranking:.2f}")
+        print(f"  Recall@1: {success_rate:.2f}%")
+        print(f"  Success@1: {successes}/{len(questions)}")
+        print(f"  Recall@3: {top3_rate:.2f}%")
+        print(f"  Success@3: {top3_successes}/{len(questions)}")
+        print(f"  Recall@5: {top5_rate:.2f}%")
+        print(f"  Success@5: {top5_successes}/{len(questions)}")
+        print(f"  Recall@10: {top10_rate:.2f}%")
+        print(f"  Success@10: {top10_successes}/{len(questions)}")
         print("="*60)
     else:
-        print("Aucun résultat!")
+        print("No results")
 
 if __name__ == "__main__":
     evaluate_bm25_on_dataset()
-    
-    # Ou mode interactif si on préfère
-    # selector = ChunkerSelector()
-    # chunks = selector.folder_chunking("./data/raw/vllm-0.10.1")
-    # bm25 = BM25(chunks, b=0.6, k=1.2, l=0.9)
-    # bm25.compute_stats()
-    # c = bm25.get_best_chunk(input())
-    # c2 = sorted(c, key=lambda x: -c[x])
-    # for i in range(15):
-    #     print(i, c2[i].file_path, c[c2[i]])
