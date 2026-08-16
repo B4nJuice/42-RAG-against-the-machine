@@ -14,9 +14,10 @@ from indexing.bm25 import BM25
 
 
 PARAM_RANGES = {
-    "k": (0.1, 3.0),
-    "b": (0.0, 2.0),
-    "l": (0.0, 5.0),
+    "k": (0.001, 3.0),
+    "b": (0.0, 3.0),
+    "l": (0.0, 6.0),
+    "delta": (0.0, 1.5)
 }
 
 
@@ -165,7 +166,8 @@ def compete_worker(
         f"[START {index}/{total}] "
         f"k={params['k']:.4f} "
         f"b={params['b']:.4f} "
-        f"l={params['l']:.4f}",
+        f"l={params['l']:.4f} "
+        f"delta={params['delta']:.4f} ",
         flush=True,
     )
 
@@ -306,7 +308,7 @@ def create_generation(
 
     best = max(
         results,
-        key=lambda x: x.get("top5_rate", 0),
+        key=lambda x: (x.get("top5_rate", 0), x.get("top3_rate", 0), x.get("top10_rate", 0), -x.get("avg_ranking", 0))
     )
 
     print(
@@ -314,13 +316,14 @@ def create_generation(
         f"\n    k = {best['k']:.4f}"
         f"\n    b = {best['b']:.4f}"
         f"\n    l = {best['l']:.4f}"
+        f"\n    delta = {best['delta']:.4f}"
         f"\n    top5 = {best['top5_rate']:.2f}%",
         flush=True,
     )
 
     generation: list[dict[str, Any]] = []
 
-    for _ in range(5):
+    for _ in range(7):
         generation.append({
             param: random.uniform(
                 min_value,
@@ -332,7 +335,7 @@ def create_generation(
             ) in PARAM_RANGES.items()
         })
 
-    for _ in range(4):
+    for _ in range(10):
         params = {}
 
         for param, (
@@ -347,8 +350,8 @@ def create_generation(
             )
 
             value += random.uniform(
-                -range_size * 0.2,
-                range_size * 0.2,
+                -range_size * 0.25,
+                range_size * 0.25,
             )
 
             value = max(
@@ -393,7 +396,7 @@ if __name__ == "__main__":
     )
 
     with open(
-        "./data/public/AnsweredQuestions/dataset_docs_public.json",
+        "./data/public/AnsweredQuestions/dataset_code_public.json",
         "r",
     ) as f:
         dataset = json.load(f)
@@ -404,7 +407,7 @@ if __name__ == "__main__":
         flush=True,
     )
 
-    results_file = "./learning/results_docs.json"
+    results_file = "./learning/results_code_public.json"
 
     if os.path.exists(results_file):
 
@@ -479,7 +482,7 @@ if __name__ == "__main__":
         )
 
         results.sort(
-            key=lambda x: x["top5_rate"],
+            key=lambda x: (x.get("top5_rate", 0), x.get("top3_rate", 0), x.get("top10_rate", 0), -x.get("avg_ranking", 0)),
             reverse=True,
         )
 
@@ -494,9 +497,11 @@ if __name__ == "__main__":
                 f"k={result['k']:.4f} "
                 f"b={result['b']:.4f} "
                 f"l={result['l']:.4f} "
-                f"top5={result['top5_rate']:.2f}% "
+                f"delta={result['delta']:.4f} "
                 f"top3={result['top3_rate']:.2f}% "
-                f"top10={result['top10_rate']:.2f}%"
+                f"top5={result['top5_rate']:.2f}% "
+                f"top10={result['top10_rate']:.2f}% "
+                f"avg={result['avg_ranking']:.2f}"
             )
 
         best = results[0]
@@ -517,6 +522,10 @@ if __name__ == "__main__":
 
         print(
             f"l      = {best['l']:.6f}"
+        )
+
+        print(
+            f"delta  = {best['delta']:.6f}"
         )
 
         print(

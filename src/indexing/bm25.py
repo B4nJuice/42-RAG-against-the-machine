@@ -11,6 +11,7 @@ class BM25:
         k: float = 1.2,
         b: float = 0.75,
         l: float = 1,
+        delta: float = 0
     ) -> None:
         self.chunks = chunks
         self.global_df: Counter = Counter()
@@ -18,6 +19,7 @@ class BM25:
         self.k = k
         self.b = b
         self.l = l
+        self.delta = delta
 
         self.avg_len = 1.0
         self.n_chunks = len(chunks)
@@ -101,14 +103,12 @@ class BM25:
                     chunk_index
                 ]
 
-                tf_score = tf / (
+                tf_score = tf * (self.k + 1) / (
                     tf + compared_len
-                )
+                ) + self.delta
 
                 tf_score *= boost
 
-                scores[chunk_index] += (
-                    tf_score * idf
-                )
+                scores[chunk_index] += tf_score * idf
 
         return scores
