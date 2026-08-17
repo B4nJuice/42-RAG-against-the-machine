@@ -4,7 +4,7 @@ from src.indexing.bm25 import BM25
 from pathlib import Path
 import numpy as np 
 import json
-
+import fire
 
 def normalize_path(path: str) -> str:
     p = Path(path)
@@ -105,5 +105,17 @@ def evaluate_bm25_on_dataset():
     else:
         print("No results")
 
+
+def index(
+    input: str = "./data/public/UnansweredQuestions",
+    output: str = "./data/processed/"):
+    ...
+
+def search():
+    ...
+
 if __name__ == "__main__":
-    evaluate_bm25_on_dataset()
+    fire.Fire({
+        "index": index,
+        "search": search,
+    })
