@@ -1,5 +1,6 @@
-from chunking.chunker_selector import ChunkerSelector
-from indexing.bm25 import BM25
+from src.chunking.chunker_selector import ChunkerSelector
+from src.indexing.bm25 import BM25
+
 from pathlib import Path
 import numpy as np 
 import json

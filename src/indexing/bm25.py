@@ -1,4 +1,4 @@
-from chunking.chunk import Chunk
+from src.chunking.chunk import Chunk
 from collections import Counter
 from math import log
 import numpy as np
