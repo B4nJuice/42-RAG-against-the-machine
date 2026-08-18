@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np 
 import json
 import fire
+import os
 
 def normalize_path(path: str) -> str:
     p = Path(path)
@@ -117,14 +118,16 @@ def create_dataset(input_path: str) -> RagDataset:
 def index(
             input_path: str = "./data/public/UnansweredQuestions/dataset_docs_public.json",
             output_path: str = "./data/processed/",
-            max_chunk_size: int | None = None
+            max_chunk_size: int | None = None,
+            debug: bool = False
         ):
     try:
+        if debug:
+            os.environ["DEBUG"] = "1"
         dataset: RagDataset = create_dataset(input_path)
-    except ValidationError as e:
-        Logger.log(e, LogLevel.ERROR)
+        Logger.log(f"dataset at {input_path} parsed.", LogLevel.DEBUG)
     except Exception as e:
-        print(e)
+        Logger.log(e, LogLevel.ERROR)
 
 def search():
     ...
