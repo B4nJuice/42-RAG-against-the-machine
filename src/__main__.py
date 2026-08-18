@@ -1,8 +1,9 @@
 from src.chunking.chunker_selector import ChunkerSelector
-from src.utils.terminal import Colors
 from src.utils.logger import Logger, LogLevel
+from src.models import RagDataset, ChunkData
+from src.utils.terminal import Colors
+from src.chunking.chunk import Chunk
 from src.indexing.bm25 import BM25
-from src.models import RagDataset
 
 from pydantic import ValidationError
 from pathlib import Path
@@ -111,29 +112,61 @@ def evaluate_bm25_on_dataset():
         print("No results")
 
 
-def create_dataset(input_path: str) -> RagDataset:
-    with open(input_path) as f:
+def create_dataset(dataset_path: str) -> RagDataset:
+    with open(dataset_path) as f:
         return RagDataset.model_validate_json(f.read())
 
+
 def index(
-            input_path: str = "./data/public/UnansweredQuestions/dataset_docs_public.json",
-            output_path: str = "./data/processed/",
+            input_path: str = "./data/raw/",
+            output_path: str = "./data/processed/chunks.json",
             max_chunk_size: int | None = None,
             debug: bool = False
         ):
+    if debug:
+        os.environ["DEBUG"] = "1"
     try:
-        if debug:
-            os.environ["DEBUG"] = "1"
-        dataset: RagDataset = create_dataset(input_path)
-        Logger.log(f"dataset at {input_path} parsed.", LogLevel.DEBUG)
+        chunker_selector: ChunkerSelector = ChunkerSelector()
+        Logger.log("chunker selector initialized.", LogLevel.DEBUG)
+        chunks: Chunk = chunker_selector.folder_chunking(input_path)
+        Logger.log(
+                f"successfully chunked {len(chunks)} chunks from {input_path}."
+            )
+
+        path = Path(output_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+        Logger.log(f"path: {output_path} initialized.", LogLevel.DEBUG)
+
+        formatted_chunks: list[str] = [c.chunk_data.model_dump() for c in chunks]
+
+        with open(output_path, "w") as f:
+            json.dump(formatted_chunks, f, indent="\t", ensure_ascii=False)
+            f.write("\n")
+
+        Logger.log(f"chunks writted in {output_path}.", LogLevel.DEBUG)
+
     except Exception as e:
         Logger.log(e, LogLevel.ERROR)
 
-def search():
-    ...
+def search(
+            dataset_path: str = "./data/public/UnansweredQuestions/dataset_docs_public.json",
+            debug: bool = False
+        ):
+    if debug:
+        os.environ["DEBUG"] = "1"
+    try:
+        dataset: RagDataset = create_dataset(dataset_path)
+        Logger.log(f"dataset at {dataset_path} parsed.", LogLevel.DEBUG)
+
+    except Exception as e:
+        Logger.log(e, LogLevel.ERROR)
 
 if __name__ == "__main__":
-    fire.Fire({
-        "index": index,
-        "search": search,
-    })
+    try:
+        fire.Fire({
+            "index": index,
+            "search": search,
+        })
+    except BaseException as e:
+        Logger.log("fatal error.", LogLevel.FATAL)

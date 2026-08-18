@@ -1,5 +1,4 @@
-from src.models import MinimalSource
-
+from src.models import MinimalSource, ChunkData
 
 from functools import lru_cache
 from collections import Counter
@@ -64,10 +63,12 @@ class Chunk:
         return len(self.content)
 
     @property
-    @lru_cache
-    def minimal_source(self) -> MinimalSource:
-        return MinimalSource(
-                file_path = self.file_path,
-                first_character_index = self.start_index,
-                last_character_index = self.end_index,
+    def chunk_data(self) -> MinimalSource:
+        return ChunkData(
+            content = self.content,
+            metadata = MinimalSource(
+                    file_path = self.file_path,
+                    first_character_index = self.start_index,
+                    last_character_index = self.end_index,
+                )
             )
