@@ -1,6 +1,10 @@
 from src.chunking.chunker_selector import ChunkerSelector
+from src.utils.terminal import Colors
+from src.utils.logger import Logger, LogLevel
 from src.indexing.bm25 import BM25
+from src.models import RagDataset
 
+from pydantic import ValidationError
 from pathlib import Path
 import numpy as np 
 import json
@@ -106,10 +110,21 @@ def evaluate_bm25_on_dataset():
         print("No results")
 
 
+def create_dataset(input_path: str) -> RagDataset:
+    with open(input_path) as f:
+        return RagDataset.model_validate_json(f.read())
+
 def index(
-    input: str = "./data/public/UnansweredQuestions",
-    output: str = "./data/processed/"):
-    ...
+            input_path: str = "./data/public/UnansweredQuestions/dataset_docs_public.json",
+            output_path: str = "./data/processed/",
+            max_chunk_size: int | None = None
+        ):
+    try:
+        dataset: RagDataset = create_dataset(input_path)
+    except ValidationError as e:
+        Logger.log(e, LogLevel.ERROR)
+    except Exception as e:
+        print(e)
 
 def search():
     ...

@@ -12,6 +12,7 @@ class Colors(Enum):
     YELLOW = "\033[93m"
     MAGENTA = "\033[95m"
     RED = "\033[31m"
+    BLUE = "\033[34m"
 
 
 class TerminalStyler(BaseModel):

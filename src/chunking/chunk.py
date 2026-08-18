@@ -63,8 +63,8 @@ class Chunk:
     def len(self) -> int:
         return len(self.content)
 
-    @lru_cache
     @property
+    @lru_cache
     def minimal_source(self) -> MinimalSource:
         return MinimalSource(
                 file_path = self.file_path,
