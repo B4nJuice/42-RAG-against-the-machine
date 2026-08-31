@@ -149,7 +149,7 @@ def index(
     except Exception as e:
         Logger.log(e, LogLevel.ERROR)
 
-def search(
+def search_dataset(
             dataset_path: str = "./data/public/UnansweredQuestions/dataset_docs_public.json",
             debug: bool = False
         ):
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     try:
         fire.Fire({
             "index": index,
-            "search": search,
+            "search_dataset": search_dataset,
         })
     except BaseException as e:
         Logger.log("fatal error.", LogLevel.FATAL)

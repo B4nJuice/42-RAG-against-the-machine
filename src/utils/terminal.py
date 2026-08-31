@@ -15,7 +15,7 @@ class Colors(Enum):
     BLUE = "\033[34m"
 
 
-class TerminalStyler(BaseModel):
+class TerminalStyler():
     """Provide terminal styling helpers for line control and colors."""
 
     @staticmethod
