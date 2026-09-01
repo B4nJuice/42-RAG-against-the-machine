@@ -22,6 +22,7 @@ def normalize_path(path: str) -> str:
 
     return p.as_posix().lstrip("./")
 
+
 def evaluate_bm25_on_dataset():
     
     selector = ChunkerSelector()
@@ -120,13 +121,18 @@ def create_dataset(dataset_path: str) -> RagDataset:
 def index(
             input_path: str = "./data/raw/",
             output_path: str = "./data/processed/chunks.json",
-            max_chunk_size: int | None = None,
+            max_chunk_size: int = 2000,
+            max_chunk_overlap: int = 200,
             debug: bool = False
         ):
     if debug:
         os.environ["DEBUG"] = "1"
     try:
-        chunker_selector: ChunkerSelector = ChunkerSelector()
+        chunker_selector: ChunkerSelector = ChunkerSelector(
+                max_chunk_size=max_chunk_size,
+                max_chunk_overlap=max_chunk_overlap
+            )
+
         Logger.log("chunker selector initialized.", LogLevel.DEBUG)
         chunks: Chunk = chunker_selector.folder_chunking(input_path)
         Logger.log(
@@ -149,8 +155,11 @@ def index(
     except Exception as e:
         Logger.log(e, LogLevel.ERROR)
 
+
 def search_dataset(
-            dataset_path: str = "./data/public/UnansweredQuestions/dataset_docs_public.json",
+            dataset_path: str =\
+                "./data/public/UnansweredQuestions/dataset_docs_public.json",
+            k: int = 10,
             debug: bool = False
         ):
     if debug:
@@ -162,10 +171,58 @@ def search_dataset(
     except Exception as e:
         Logger.log(e, LogLevel.ERROR)
 
+
+def search(
+            query: str,
+            k: int = 10,
+            chunk_path: str = "./data/processed/chunks.json",
+            force_index: bool = False,
+            debug: bool = False
+        ) -> None:
+    if debug:
+            os.environ["DEBUG"] = "1"    
+    if force_index:
+        Logger.log("indexing forced")
+        index(output_path=chunk_path)
+
+    chunks: list[Chunk] = []
+
+    try:
+        with open(chunk_path) as f:
+            for chunk in json.loads(f.read()):
+                chunks.append(Chunk.from_chunk_data(ChunkData.model_validate(chunk)))
+    except Exception as e:
+        Logger.log(e, LogLevel.ERROR)
+    
+    bm25 = BM25(chunks=chunks)
+
+    bm25.compute_stats()
+
+    scores = bm25.get_best_chunk(query)
+
+    top_k = min(k, len(scores))
+
+    indices = np.argpartition(
+        scores,
+        -top_k,
+    )[-top_k:]
+
+    indices = indices[
+        np.argsort(scores[indices])[::-1]
+    ]
+
+    ranked_chunks = [
+        bm25.chunks[i]
+        for i in indices
+    ]
+
+    print([c.content for c in ranked_chunks])
+
 if __name__ == "__main__":
     try:
         fire.Fire({
             "index": index,
+            "search": search,
             "search_dataset": search_dataset,
         })
     except BaseException as e:

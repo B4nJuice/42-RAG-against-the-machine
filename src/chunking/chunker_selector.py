@@ -28,9 +28,15 @@ LANGUAGE_TRANSLATION = {
 }
 
 class ChunkerSelector:
-    def __init__(self):
+    def __init__(self,
+            max_chunk_size: int = 2000,
+            max_chunk_overlap: int = 200
+        ):
         self.chunkers: dict[Language | str, RecursiveCharacterTextSplitter] =\
             {}
+        for k, v in LANGUAGE_PARAMS.items():
+            v["chunk_size"] = min(v["chunk_size"], max_chunk_size)
+            v["chunk_overlap"] = min(v["chunk_overlap"], max_chunk_overlap)
 
     @staticmethod
     def get_suffix(file_name: str) -> str:

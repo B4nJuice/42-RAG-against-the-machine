@@ -18,6 +18,15 @@ class Chunk:
         self.start_index: int = start_index
         self.end_index: int = end_index
 
+    @classmethod
+    def from_chunk_data(cls, chunk: ChunkData) -> 'Chunk':
+        return cls(
+                chunk.metadata.file_path,
+                chunk.content,
+                chunk.metadata.first_character_index,
+                chunk.metadata.last_character_index
+            )
+
     @staticmethod
     def tokenize(content: str) -> list[str]:
         text = unicodedata.normalize("NFKC", content)
