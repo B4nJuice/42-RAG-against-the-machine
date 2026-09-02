@@ -202,6 +202,10 @@ def search(
 
     top_k = min(k, len(scores))
 
+    if top_k != k:
+        Logger.log(f"Impossible to retrieve top {k} sources because there\
+is only {top_k} chunks.", LogLevel.DEBUG)
+
     indices = np.argpartition(
         scores,
         -top_k,
@@ -211,7 +215,7 @@ def search(
         np.argsort(scores[indices])[::-1]
     ]
 
-    Logger.log(f"Top {k} sources for \"{query}\" :")
+    Logger.log(f"Top {top_k} sources for \"{query}\" :")
 
     for top, i in enumerate(indices):
         chunk: Chunk = bm25.chunks[i]
