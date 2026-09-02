@@ -1,7 +1,7 @@
 from src.chunking.chunker_selector import ChunkerSelector
 from src.utils.logger import Logger, LogLevel
 from src.models import RagDataset, ChunkData
-from src.utils.terminal import Colors
+from src.utils.terminal import Colors, TerminalStyler
 from src.chunking.chunk import Chunk
 from src.indexing.bm25 import BM25
 
@@ -194,7 +194,7 @@ def search(
     except Exception as e:
         Logger.log(e, LogLevel.ERROR)
     
-    bm25 = BM25(chunks=chunks)
+    bm25: BM25 = BM25(chunks=chunks)
 
     bm25.compute_stats()
 
@@ -211,12 +211,15 @@ def search(
         np.argsort(scores[indices])[::-1]
     ]
 
-    ranked_chunks = [
-        bm25.chunks[i]
-        for i in indices
-    ]
+    Logger.log(f"Top {k} sources for \"{query}\" :")
 
-    print([c.content for c in ranked_chunks])
+    for top, i in enumerate(indices):
+        chunk: Chunk = bm25.chunks[i]
+        Logger.log(
+            TerminalStyler.colored_text(
+                [Colors.BLUE], f"[{top + 1}] "
+            ) + chunk.file_path + f" [{chunk.start_index}:{chunk.end_index}]"
+        )
 
 if __name__ == "__main__":
     try:
