@@ -63,25 +63,11 @@ def evaluate_bm25_on_dataset(
             if source.get("file_path")
         }
 
-        scores = bm25.get_best_chunk(question)
+        scores = bm25.get_best_chunk(question, 10)
 
-        top_k = min(10, len(scores))
-
-        if top_k == 0:
-            continue
-
-        indices = np.argpartition(
-            scores,
-            -top_k,
-        )[-top_k:]
-
-        indices = indices[
-            np.argsort(scores[indices])[::-1]
-        ]
-
-        for rank, index in enumerate(indices, start=1):
+        for rank, chunk in enumerate(scores, start=1):
             chunk_path = normalize_path(
-                bm25.chunks[index].file_path
+                chunk.file_path
             )
 
             if chunk_path in expected_file_paths:
