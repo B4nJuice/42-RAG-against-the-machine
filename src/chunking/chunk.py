@@ -1,4 +1,4 @@
-from src.models import MinimalSource, ChunkData
+from src.utils.models import MinimalSource, ChunkData
 
 from functools import lru_cache
 from collections import Counter

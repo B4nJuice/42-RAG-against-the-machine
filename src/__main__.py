@@ -1,6 +1,6 @@
 from src.chunking.chunker_selector import ChunkerSelector
 from src.utils.logger import Logger, LogLevel
-from src.models import RagDataset, ChunkData
+from src.utils.models import RagDataset, ChunkData
 from src.utils.terminal import Colors, TerminalStyler
 from src.chunking.chunk import Chunk
 from src.indexing.bm25 import BM25
