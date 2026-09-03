@@ -81,7 +81,7 @@ class BM25:
             / (n_token + 0.5)
         )
 
-    def get_best_chunk(self, query: str) -> np.ndarray:
+    def get_best_chunk(self, query: str, k: int) -> np.ndarray:
         tokens = set(Chunk.tokenize(query))
 
         scores = np.zeros(
@@ -111,4 +111,13 @@ class BM25:
 
                 scores[chunk_index] += tf_score * idf
 
-        return scores
+            indices = np.argpartition(
+                scores,
+                -k,
+            )[-k:]
+
+            indices = indices[
+                np.argsort(scores[indices])[::-1]
+            ]
+
+        return [self.chunks[i] for i in indices]

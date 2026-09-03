@@ -198,7 +198,7 @@ def search(
 
     bm25.compute_stats()
 
-    scores = bm25.get_best_chunk(query)
+    scores = bm25.get_best_chunk(query, k)
 
     top_k = min(k, len(scores))
 
@@ -206,19 +206,9 @@ def search(
         Logger.log(f"Impossible to retrieve top {k} sources because there\
 is only {top_k} chunks.", LogLevel.DEBUG)
 
-    indices = np.argpartition(
-        scores,
-        -top_k,
-    )[-top_k:]
-
-    indices = indices[
-        np.argsort(scores[indices])[::-1]
-    ]
-
     Logger.log(f"Top {top_k} sources for \"{query}\" :")
 
-    for top, i in enumerate(indices):
-        chunk: Chunk = bm25.chunks[i]
+    for top, chunk in enumerate(scores):
         Logger.log(
             TerminalStyler.colored_text(
                 [Colors.BLUE], f"[{top + 1}] "
@@ -233,4 +223,5 @@ if __name__ == "__main__":
             "search_dataset": search_dataset,
         })
     except BaseException as e:
+        raise e
         Logger.log("fatal error.", LogLevel.FATAL)
