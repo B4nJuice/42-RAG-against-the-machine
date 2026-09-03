@@ -111,6 +111,8 @@ class BM25:
 
                 scores[chunk_index] += tf_score * idf
 
+            k = min(self.n_chunks, k)
+
             indices = np.argpartition(
                 scores,
                 -k,
