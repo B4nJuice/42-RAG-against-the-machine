@@ -1,4 +1,5 @@
 from src.chunking.chunk import Chunk
+from src.utils.logger import Logger, LogLevel
 
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
@@ -17,33 +18,12 @@ class Generator:
                     cache_dir="/tmp/transformers_models_cache"
                 )
 
-    def answer(self, query: str, chunks: list[Chunk]):
-        context = "\n\n".join(c.content for c in chunks)
-
-        messages = [
-            {
-                "role": "system",
-                "content": "Answer only using the provided context."
-            },
-            {
-                "role": "user",
-                "content": f"""
-                Context:
-                {context}
-    
-                Question:
-                {query}
-                """
-            }
-        ]
-
+    def _call(self, messages: list[dict[str, str]]) -> str:
         inputs = self.tokenizer.apply_chat_template(
             messages,
             return_tensors="pt",
             add_generation_prompt=True,
         ).to(self.model.device)
-
-        print(inputs)
 
         outputs = self.model.generate(
             inputs.input_ids,
@@ -59,3 +39,50 @@ class Generator:
         )
 
         return answer
+
+    def answer(self, query: str, chunks: list[Chunk]) -> str:
+        context = "\n\n".join(c.content for c in chunks)
+
+        messages = [
+            {
+                "role": "system",
+                "content": "Answer only using the provided context. "
+                "Be concise. "
+                "Normal text format. "
+            },
+            {
+                "role": "user",
+                "content": f"""
+                Context:
+                {context}
+    
+                Question:
+                {query}
+                """
+            }
+        ]
+
+        return self._call(messages)
+
+    def rephrase(self, query: str) -> str:
+        messages = [
+            {
+                "role": "system",
+                "content": "Rephrase the user's query using synonyms and different wording. "
+                "Return exactly one rephrased query. "
+                "Do not add explanations, alternatives, numbering, or quotes."
+            },
+            {
+                "role": "user",
+                "content": f"""
+                query:
+                {query}
+                """
+            }
+        ]
+
+        rephrased_query: str = self._call(messages).strip()
+
+        Logger.log("Rephrased query: " + rephrased_query, LogLevel.DEBUG)
+
+        return rephrased_query

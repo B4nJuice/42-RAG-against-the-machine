@@ -95,7 +95,7 @@ import fire
 
 if __name__ == "__main__":
     try:
-        fire.Fire(Cli)
+        fire.Fire(Cli())
     except BaseException as e:
         raise e
         Logger.log("fatal error.", LogLevel.FATAL)

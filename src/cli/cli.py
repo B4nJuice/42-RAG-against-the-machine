@@ -30,8 +30,11 @@ def normalize_path(path: str) -> str:
     return p.as_posix().lstrip("./")
 
 class Cli:
-    @staticmethod
+    def __init__(self) -> None:
+        self.generator: Generator = Generator()
+
     def index(
+                self,
                 input_path: str = "./data/raw/",
                 output_path: str = "./data/processed/chunks.json",
                 max_chunk_size: int = 2000,
@@ -68,8 +71,8 @@ class Cli:
         except Exception as e:
             Logger.log(e, LogLevel.ERROR)
 
-    @staticmethod
     def search_dataset(
+                self,
                 dataset_path: str =\
                     "./data/public/UnansweredQuestions/dataset_docs_public.json",
                 k: int = 10,
@@ -85,8 +88,8 @@ class Cli:
             Logger.log(e, LogLevel.ERROR)
 
 
-    @staticmethod
     def search(
+                self,
                 query: str,
                 k: int = 10,
                 chunk_path: str = "./data/processed/chunks.json",
@@ -98,7 +101,7 @@ class Cli:
                 os.environ["DEBUG"] = "1"    
         if force_index:
             Logger.log("indexing forced")
-            Cli.index(output_path=chunk_path)
+            self.index(output_path=chunk_path)
 
         chunks: list[Chunk] = []
 
@@ -121,9 +124,9 @@ class Cli:
             Logger.log(f"Impossible to retrieve top {k} sources because there\
     is only {top_k} chunks.", LogLevel.DEBUG)
 
-        Logger.log(f"Top {top_k} sources for \"{query}\" :")
-
         if not no_output:
+            Logger.log(f"Top {top_k} sources for \"{query}\" :")
+
             for top, chunk in enumerate(scores):
                 Logger.log(
                     TerminalStyler.colored_text(
@@ -133,8 +136,8 @@ class Cli:
 
         return scores
 
-    @staticmethod
     def answer(
+                self,
                 query: str,
                 k: int = 10,
                 save_directory: str = "./data/processed/answer_result.json",
@@ -145,14 +148,16 @@ class Cli:
         if debug:
                 os.environ["DEBUG"] = "1"
 
+        query += "\n" + self.generator.rephrase(query)
 
-        chunks: list[Chunk] = Cli.search(
+        chunks: list[Chunk] = self.search(
                 query,
                 k=k,
                 force_index=force_index,
                 no_output=True
             )
 
-        generator: Generator = Generator()
-
-        print(generator.answer(query, chunks))
+        Logger.log(self.generator.answer(
+                query,
+                chunks
+            ).strip())
