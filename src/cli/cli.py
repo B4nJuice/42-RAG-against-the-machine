@@ -1,6 +1,7 @@
 from src.chunking.chunker_selector import ChunkerSelector
 from src.utils.terminal import Colors, TerminalStyler
 from src.utils.models import RagDataset, ChunkData
+from src.generating.generate import Generator
 from src.utils.logger import Logger, LogLevel
 from src.chunking.chunk import Chunk
 from src.indexing.bm25 import BM25
@@ -9,6 +10,7 @@ from pydantic import ValidationError
 from pathlib import Path
 import numpy as np 
 import json
+import fire
 import os
 
 
@@ -89,13 +91,14 @@ class Cli:
                 k: int = 10,
                 chunk_path: str = "./data/processed/chunks.json",
                 force_index: bool = False,
+                no_output: bool = False,
                 debug: bool = False
             ) -> None:
         if debug:
                 os.environ["DEBUG"] = "1"    
         if force_index:
             Logger.log("indexing forced")
-            index(output_path=chunk_path)
+            Cli.index(output_path=chunk_path)
 
         chunks: list[Chunk] = []
 
@@ -110,7 +113,7 @@ class Cli:
 
         bm25.compute_stats()
 
-        scores = bm25.get_best_chunk(query, k)
+        scores: list[Chunk] = bm25.get_best_chunk(query, k)
 
         top_k = min(k, len(scores))
 
@@ -120,9 +123,36 @@ class Cli:
 
         Logger.log(f"Top {top_k} sources for \"{query}\" :")
 
-        for top, chunk in enumerate(scores):
-            Logger.log(
-                TerminalStyler.colored_text(
-                    [Colors.BLUE], f"[{top + 1}] "
-                ) + chunk.file_path + f" [{chunk.start_index}:{chunk.end_index}]"
+        if not no_output:
+            for top, chunk in enumerate(scores):
+                Logger.log(
+                    TerminalStyler.colored_text(
+                        [Colors.BLUE], f"[{top + 1}] "
+                    ) + chunk.file_path + f" [{chunk.start_index}:{chunk.end_index}]"
+                )
+
+        return scores
+
+    @staticmethod
+    def answer(
+                query: str,
+                k: int = 10,
+                save_directory: str = "./data/processed/answer_result.json",
+                force_index: bool = False,
+                debug: bool = False
+            ) -> None:
+
+        if debug:
+                os.environ["DEBUG"] = "1"
+
+
+        chunks: list[Chunk] = Cli.search(
+                query,
+                k=k,
+                force_index=force_index,
+                no_output=True
             )
+
+        generator: Generator = Generator()
+
+        print(generator.answer(query, chunks))

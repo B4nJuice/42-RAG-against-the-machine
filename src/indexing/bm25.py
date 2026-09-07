@@ -81,7 +81,7 @@ class BM25:
             / (n_token + 0.5)
         )
 
-    def get_best_chunk(self, query: str, k: int) -> np.ndarray:
+    def get_best_chunk(self, query: str, k: int) -> list[Chunk]:
         tokens = set(Chunk.tokenize(query))
 
         scores = np.zeros(

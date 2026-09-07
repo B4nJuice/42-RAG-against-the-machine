@@ -10,4 +10,9 @@ dependencies = [
     "langchain-text-splitters==1.1.2",
     "numpy>=2.5.2",
     "pydantic>=2.13.4",
+    "transformers[torch]>=5.16.1",
 ]
+
+[tool.uv]
+cache-dir = "/tmp/.uv_cache"
+link-mode = "symlink"
