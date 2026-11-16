@@ -1,7 +1,9 @@
-from src.chunking.chunk import Chunk
 from collections import Counter
 from math import log
+
 import numpy as np
+
+from src.chunking.chunk import Chunk
 
 
 class BM25:

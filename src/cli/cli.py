@@ -1,17 +1,14 @@
-from src.chunking.chunker_selector import ChunkerSelector
-from src.utils.terminal import Colors, TerminalStyler
-from src.utils.models import RagDataset, ChunkData
-from src.generating.generate import Generator
-from src.utils.logger import Logger, LogLevel
-from src.chunking.chunk import Chunk
-from src.indexing.bm25 import BM25
-
-from pydantic import ValidationError
-from pathlib import Path
-import numpy as np 
 import json
-import fire
 import os
+from pathlib import Path
+
+from src.chunking.chunk import Chunk
+from src.chunking.chunker_selector import ChunkerSelector
+from src.generating.generate import Generator
+from src.indexing.bm25 import BM25
+from src.utils.logger import Logger, LogLevel
+from src.utils.models import ChunkData, RagDataset
+from src.utils.terminal import Colors, TerminalStyler
 
 
 def create_dataset(dataset_path: str) -> RagDataset:
@@ -50,7 +47,7 @@ class Cli:
                 )
 
             Logger.log("chunker selector initialized.", LogLevel.DEBUG)
-            chunks: Chunk = chunker_selector.folder_chunking(input_path)
+            chunks: list[Chunk] = chunker_selector.folder_chunking(input_path)
             Logger.log(
                     f"successfully chunked {len(chunks)} chunks from {input_path}."
                 )
@@ -60,7 +57,9 @@ class Cli:
             path.touch()
             Logger.log(f"path: {output_path} initialized.", LogLevel.DEBUG)
 
-            formatted_chunks: list[str] = [c.chunk_data.model_dump() for c in chunks]
+            formatted_chunks: list[str] = [
+                c.chunk_data.model_dump() for c in chunks
+            ]
 
             with open(output_path, "w") as f:
                 json.dump(formatted_chunks, f, indent="\t", ensure_ascii=False)
@@ -96,9 +95,9 @@ class Cli:
                 force_index: bool = False,
                 no_output: bool = False,
                 debug: bool = False
-            ) -> None:
+            ) -> list[Chunk]:
         if debug:
-                os.environ["DEBUG"] = "1"    
+                os.environ["DEBUG"] = "1"
         if force_index:
             Logger.log("indexing forced")
             self.index(output_path=chunk_path)

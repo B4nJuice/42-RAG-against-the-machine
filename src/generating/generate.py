@@ -1,7 +1,8 @@
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
 from src.chunking.chunk import Chunk
 from src.utils.logger import Logger, LogLevel
 
-from transformers import AutoTokenizer, AutoModelForCausalLM
 
 class Generator:
     def __init__(self, model_name: str = "Qwen/Qwen3.5-0.8B") -> None:
@@ -55,7 +56,7 @@ class Generator:
                 "content": f"""
                 Context:
                 {context}
-    
+
                 Question:
                 {query}
                 """
@@ -70,7 +71,6 @@ class Generator:
                 "role": "system",
                 "content": "Rephrase the user's query using synonyms and different wording. "
                 "Return exactly one rephrased query. "
-                "Do not add explanations, alternatives, numbering, or quotes."
             },
             {
                 "role": "user",
