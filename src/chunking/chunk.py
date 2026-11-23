@@ -72,7 +72,7 @@ class Chunk:
         return len(self.content)
 
     @property
-    def chunk_data(self) -> MinimalSource:
+    def chunk_data(self) -> ChunkData:
         return ChunkData(
             content = self.content,
             metadata = MinimalSource(

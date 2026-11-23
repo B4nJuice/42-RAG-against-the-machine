@@ -57,9 +57,12 @@ class ChunkerSelector:
         language: Language | str = self.get_language(file_path)
 
         if language in self.chunkers:
-            return self.chunkers.get(language)
+            return self.chunkers[language]
 
-        language_params: dict[str, Any] = LANGUAGE_PARAMS.get(language)
+        language_params: dict[str, Any] = LANGUAGE_PARAMS.get(
+                language,
+                LANGUAGE_PARAMS["default"]
+            )
 
         if isinstance(language, str):
             chunker = RecursiveCharacterTextSplitter(
@@ -67,9 +70,11 @@ class ChunkerSelector:
                     add_start_index=True
                 )
         else:
-            chunker = RecursiveCharacterTextSplitter().from_language(
+            chunker = RecursiveCharacterTextSplitter.from_language(
                     language, **language_params, add_start_index=True
                 )
+            if chunker is None:
+                raise RuntimeError(f"Unable to create a chunker for {language}")
 
         self.chunkers.update({language: chunker})
 
@@ -82,7 +87,7 @@ class ChunkerSelector:
 
         with open(file_path) as f:
             file_content = f.read()
-            documents: Document = chunker.create_documents([file_content])
+            documents: list[Document] = chunker.create_documents([file_content])
 
         chunks: list[Chunk] = []
 

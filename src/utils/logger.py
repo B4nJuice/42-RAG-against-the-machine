@@ -2,6 +2,7 @@ from src.utils.terminal import Colors, TerminalStyler
 
 from os import environ
 from enum import Enum
+from typing import cast
 
 
 class LogLevel(Enum):
@@ -14,7 +15,9 @@ class LogLevel(Enum):
 
 class Logger():
     @staticmethod
-    def log(message: str, log_level: LogLevel = LogLevel.INFO) -> None:
+    def log(message: object, log_level: LogLevel = LogLevel.INFO) -> None:
         if log_level is LogLevel.DEBUG and environ.get("DEBUG") != "1":
             return
-        print(TerminalStyler.colored_text(*(log_level.value)), message)
+        colors = cast(list[Colors], log_level.value[0])
+        label = cast(str, log_level.value[1])
+        print(TerminalStyler.colored_text(colors, label), str(message))

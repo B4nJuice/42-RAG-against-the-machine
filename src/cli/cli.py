@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 from src.chunking.chunk import Chunk
 from src.chunking.chunker_selector import ChunkerSelector
@@ -37,7 +38,7 @@ class Cli:
                 max_chunk_size: int = 2000,
                 max_chunk_overlap: int = 200,
                 debug: bool = False
-            ):
+            ) -> None:
         if debug:
             os.environ["DEBUG"] = "1"
         try:
@@ -57,7 +58,7 @@ class Cli:
             path.touch()
             Logger.log(f"path: {output_path} initialized.", LogLevel.DEBUG)
 
-            formatted_chunks: list[str] = [
+            formatted_chunks: list[dict[str, Any]] = [
                 c.chunk_data.model_dump() for c in chunks
             ]
 
@@ -76,7 +77,7 @@ class Cli:
                     "./data/public/UnansweredQuestions/dataset_docs_public.json",
                 k: int = 10,
                 debug: bool = False
-            ):
+            ) -> None:
         if debug:
             os.environ["DEBUG"] = "1"
         try:

@@ -1,17 +1,33 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
+
+from typing import Any, cast
+
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    PreTrainedModel,
+)
+from transformers.tokenization_utils_base import (
+    BatchEncoding,
+    PreTrainedTokenizerBase,
+)
 
 from src.chunking.chunk import Chunk
+from src.errors.unsupported_device_error import UnsupportedDeviceError
 from src.utils.logger import Logger, LogLevel
 
 
 class Generator:
+    model_name: str
+    tokenizer: PreTrainedTokenizerBase
+    model: PreTrainedModel
+
     def __init__(self, model_name: str = "Qwen/Qwen3.5-0.8B") -> None:
-        self.model_name: str = model_name
-        self.tokenizer: AutoTokenizer = AutoTokenizer.from_pretrained(
+        self.model_name = model_name
+        self.tokenizer = AutoTokenizer.from_pretrained(
                 model_name,
                 cache_dir="/tmp/transformers_models_cache"
             )
-        self.model: AutoModelForCausalLM =\
+        self.model =\
             AutoModelForCausalLM.from_pretrained(
                     self.model_name,
                     device_map="auto",
@@ -20,13 +36,20 @@ class Generator:
                 )
 
     def _call(self, messages: list[dict[str, str]]) -> str:
+
         inputs = self.tokenizer.apply_chat_template(
             messages,
             return_tensors="pt",
             add_generation_prompt=True,
-        ).to(self.model.device)
+        )
 
-        outputs = self.model.generate(
+        if not isinstance(inputs, BatchEncoding):
+            raise UnsupportedDeviceError(str(self.model.device))
+
+        inputs = inputs.to(self.model.device)
+
+        generate: Any = cast(Any, self.model.generate)
+        outputs = generate(
             inputs.input_ids,
             max_new_tokens=256,
             do_sample=False,
@@ -34,34 +57,50 @@ class Generator:
 
         input_length = inputs["input_ids"].shape[-1]
 
-        answer = self.tokenizer.decode(
+        answer: str | list[str] = self.tokenizer.decode(
             outputs[0][input_length:],
             skip_special_tokens=True,
         )
 
-        return answer
+        return " ".join(answer)
 
     def answer(self, query: str, chunks: list[Chunk]) -> str:
         context = "\n\n".join(c.content for c in chunks)
 
+        examples = [
+            ("Where can I find information about using generative models \
+in vLLM?", "Information about using generative models in vLLM can be found \
+on the generative models page, as referenced in the supported models \
+documentation."),
+            ("What conditions must be met for vLLM's ModelRunner to use CUDA \
+graphs instead of the regular model?", "Two conditions must be met: \
+`prefill_meta` must be `None` and \
+`decode_meta.use_cuda_graph` must be `True`. When both conditions are \
+satisfied, the ModelRunner uses `self.graph_runners[virtual_engine]` \
+instead of `self.model`."),
+                ]
+
         messages = [
             {
                 "role": "system",
-                "content": "Answer only using the provided context. "
-                "Be concise. "
-                "Normal text format. "
-            },
-            {
-                "role": "user",
-                "content": f"""
-                Context:
-                {context}
-
-                Question:
-                {query}
-                """
+                "content": (
+                    "You are a helpful assistant. "
+                    "Answer in plain text only, do not use markdown, "
+                    "code blocks, or formatting symbols. "
+                    "Just provide direct instructions or explanations."
+                ),
             }
         ]
+        for q, a in examples:
+            messages.append({"role": "user", "content": q})
+            messages.append({"role": "assistant", "content": a})
+
+        messages.append(
+            {
+                "role": "user",
+                "content": f"Context:\n{context}\n\nQuestion:\n{query}",
+            }
+        )
 
         return self._call(messages)
 
