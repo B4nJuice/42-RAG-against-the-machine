@@ -1,7 +1,14 @@
+import json
 import uuid
 
 from pydantic import BaseModel, Field
 
+
+class RagEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, BaseModel):
+            return obj.model_dump(mode="json")
+        return super().default(obj)
 
 class MinimalSource(BaseModel):
     file_path: str

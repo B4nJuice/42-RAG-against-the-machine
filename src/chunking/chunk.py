@@ -1,9 +1,10 @@
-from src.utils.models import MinimalSource, ChunkData
-
-from functools import lru_cache
-from collections import Counter
 import re
 import unicodedata
+from collections import Counter
+from functools import lru_cache
+
+from src.utils.models import ChunkData, MinimalSource
+
 
 class Chunk:
     def __init__(
@@ -72,12 +73,19 @@ class Chunk:
         return len(self.content)
 
     @property
+    @lru_cache
+    def minimal_source(self) -> MinimalSource:
+        return(
+            MinimalSource(
+                file_path = self.file_path,
+                first_character_index = self.start_index,
+                last_character_index = self.end_index,
+            )
+        )
+
+    @property
     def chunk_data(self) -> ChunkData:
         return ChunkData(
             content = self.content,
-            metadata = MinimalSource(
-                    file_path = self.file_path,
-                    first_character_index = self.start_index,
-                    last_character_index = self.end_index,
-                )
+            metadata = self.minimal_source
             )

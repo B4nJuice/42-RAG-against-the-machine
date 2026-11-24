@@ -1,6 +1,4 @@
-import json
 import os
-from pathlib import Path
 from typing import Any
 
 from src.chunking.chunk import Chunk
@@ -8,7 +6,13 @@ from src.chunking.chunker_selector import ChunkerSelector
 from src.generating.generate import Generator
 from src.indexing.bm25 import BM25
 from src.utils.logger import Logger, LogLevel
-from src.utils.models import ChunkData, RagDataset
+from src.utils.models import (
+    ChunkData,
+    MinimalSearchResults,
+    RagDataset,
+    StudentSearchResults,
+)
+from src.utils.result_manager import ResultManager
 from src.utils.terminal import Colors, TerminalStyler
 
 
@@ -16,16 +20,6 @@ def create_dataset(dataset_path: str) -> RagDataset:
     with open(dataset_path) as f:
         return RagDataset.model_validate_json(f.read())
 
-
-def normalize_path(path: str) -> str:
-    p = Path(path)
-    if p.is_absolute():
-        try:
-            p = p.relative_to(Path.cwd())
-        except ValueError:
-            pass
-
-    return p.as_posix().lstrip("./")
 
 class Cli:
     def __init__(self) -> None:
@@ -53,18 +47,11 @@ class Cli:
                     f"successfully chunked {len(chunks)} chunks from {input_path}."
                 )
 
-            path = Path(output_path)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.touch()
-            Logger.log(f"path: {output_path} initialized.", LogLevel.DEBUG)
-
             formatted_chunks: list[dict[str, Any]] = [
                 c.chunk_data.model_dump() for c in chunks
             ]
 
-            with open(output_path, "w") as f:
-                json.dump(formatted_chunks, f, indent="\t", ensure_ascii=False)
-                f.write("\n")
+            ResultManager.store_result(output_path, formatted_chunks)
 
             Logger.log(f"chunks writted in {output_path}.", LogLevel.DEBUG)
 
@@ -93,6 +80,7 @@ class Cli:
                 query: str,
                 k: int = 10,
                 chunk_path: str = "./data/processed/chunks.json",
+                output_path: str = "./data/processed/search_results.json",
                 force_index: bool = False,
                 no_output: bool = False,
                 debug: bool = False
@@ -105,12 +93,8 @@ class Cli:
 
         chunks: list[Chunk] = []
 
-        try:
-            with open(chunk_path) as f:
-                for chunk in json.loads(f.read()):
-                    chunks.append(Chunk.from_chunk_data(ChunkData.model_validate(chunk)))
-        except Exception as e:
-            Logger.log(e, LogLevel.ERROR)
+        for chunk in ResultManager.read_result(chunk_path):
+            chunks.append(Chunk.from_chunk_data(ChunkData.model_validate(chunk)))
 
         bm25: BM25 = BM25(chunks=chunks)
 
@@ -125,6 +109,16 @@ class Cli:
     is only {top_k} chunks.", LogLevel.DEBUG)
 
         if not no_output:
+            search_results = StudentSearchResults(
+                search_results = [
+                    MinimalSearchResults(
+                        question_id = "None",
+                        question_str = query,
+                        retrieved_sources = [c.minimal_source for c in scores]
+                    )
+                ],
+            k = 1)
+
             Logger.log(f"Top {top_k} sources for \"{query}\" :")
 
             for top, chunk in enumerate(scores):
@@ -133,6 +127,8 @@ class Cli:
                         [Colors.BLUE], f"[{top + 1}] "
                     ) + chunk.file_path + f" [{chunk.start_index}:{chunk.end_index}]"
                 )
+
+            ResultManager.store_result(output_path, search_results)
 
         return scores
 
