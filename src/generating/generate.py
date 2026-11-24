@@ -13,7 +13,6 @@ from transformers.tokenization_utils_base import (
 
 from src.chunking.chunk import Chunk
 from src.errors.unsupported_device_error import UnsupportedDeviceError
-from src.utils.logger import Logger, LogLevel
 
 
 class Generator:
@@ -85,9 +84,10 @@ instead of `self.model`."),
                 "role": "system",
                 "content": (
                     "You are a helpful assistant. "
-                    "Answer in plain text only, do not use markdown, "
-                    "code blocks, or formatting symbols. "
-                    "Just provide direct instructions or explanations."
+                    "Provide direct instructions or explanations."
+                    "Never use markdown, "
+                    "never use code blocks, never use formatting symbols. "
+                    "Answer in plain text only."
                 ),
             }
         ]
@@ -121,7 +121,5 @@ instead of `self.model`."),
         ]
 
         rephrased_query: str = self._call(messages).strip()
-
-        Logger.log("Rephrased query: " + rephrased_query, LogLevel.DEBUG)
 
         return rephrased_query

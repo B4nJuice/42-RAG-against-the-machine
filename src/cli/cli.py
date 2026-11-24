@@ -8,9 +8,11 @@ from src.indexing.bm25 import BM25
 from src.utils.logger import Logger, LogLevel
 from src.utils.models import (
     ChunkData,
+    MinimalAnswer,
     MinimalSearchResults,
     RagDataset,
     StudentSearchResults,
+    StudentSearchResultsAndAnswer,
 )
 from src.utils.result_manager import ResultManager
 from src.utils.terminal import Colors, TerminalStyler
@@ -151,43 +153,111 @@ class Cli:
             Logger.log(f"Impossible to retrieve top {k} sources because there\
     is only {top_k} chunks.", LogLevel.DEBUG)
 
-        if not no_output:
-            search_results = StudentSearchResults(
-                search_results = [
-                    MinimalSearchResults(
-                        question_id = "None",
-                        question_str = query,
-                        retrieved_sources = [c.minimal_source for c in scores]
-                    )
-                ],
-            k = 1)
+        if no_output:
+            return scores
 
-            Logger.log(f"Top {top_k} sources for \"{query}\" :")
-
-            for top, chunk in enumerate(scores):
-                Logger.log(
-                    TerminalStyler.colored_text(
-                        [Colors.BLUE], f"[{top + 1}] "
-                    ) + chunk.file_path + f" [{chunk.start_index}:{chunk.end_index}]"
+        search_results = StudentSearchResults(
+            search_results = [
+                MinimalSearchResults(
+                    question_id = "None",
+                    question_str = query,
+                    retrieved_sources = [c.minimal_source for c in scores]
                 )
+            ],
+        k = 1)
 
-            ResultManager.store_result(output_path, search_results)
+        Logger.log(f"Top {top_k} sources for \"{query}\" :")
+
+        for top, chunk in enumerate(scores):
+            Logger.log(
+                TerminalStyler.colored_text(
+                    [Colors.BLUE], f"[{top + 1}] "
+                ) + chunk.file_path + f" [{chunk.start_index}:{chunk.end_index}]"
+            )
+
+        ResultManager.store_result(output_path, search_results)
 
         return scores
+
+    def answer_dataset(
+                self,
+                dataset_path: str =\
+                "./data/public/UnansweredQuestions/dataset_docs_public.json",
+                chunk_path: str = "./data/processed/chunks.json",
+                output_path: str = "./data/processed/answer_results.json",
+                force_index: bool = False,
+                k: int = 5,
+                debug: bool = False
+            ) -> None:
+        if debug:
+            os.environ["DEBUG"] = "1"
+        if force_index:
+            Logger.log("Indexing forced", LogLevel.DEBUG)
+            self.index(output_path=chunk_path)
+
+        dataset = RagDataset.model_validate(
+            ResultManager.read_result(dataset_path)
+        )
+        Logger.log(f"Dataset at {dataset_path} parsed.", LogLevel.DEBUG)
+
+        chunks: list[Chunk] = []
+
+        for chunk in Logger.progress(
+                    ResultManager.read_result(chunk_path), "Loading chunks"
+                ):
+            chunks.append(
+                Chunk.from_chunk_data(ChunkData.model_validate(chunk))
+            )
+
+        answers = []
+        bm25: BM25 = BM25(chunks=chunks)
+
+        for question in Logger.progress(
+                    dataset.rag_questions, "Answering questions"
+                ):
+            rephrased_query = question.question + "\n" +\
+                self.generator.rephrase(question.question)
+            scores = self.search(
+                question.question,
+                k=k,
+                chunk_path=chunk_path,
+                no_output=True,
+                chunks=chunks,
+                bm25=bm25,
+            )
+            answer = MinimalAnswer(
+                question_id=question.question_id,
+                question_str=question.question,
+                retrieved_sources=[c.minimal_source for c in scores],
+                answer=self.generator.answer(
+                    rephrased_query,
+                    scores
+                ).strip()
+            )
+            answers.append(answer)
+
+            ResultManager.store_result(
+                output_path,
+                StudentSearchResultsAndAnswer(
+                    search_results=answers,
+                    k=len(answers)
+                )
+            )
 
     def answer(
                 self,
                 query: str,
                 k: int = 10,
-                save_directory: str = "./data/processed/answer_result.json",
+                output_path: str = "./data/processed/answer_result.json",
                 force_index: bool = False,
+                no_output: bool = False,
                 debug: bool = False
-            ) -> None:
+            ) -> MinimalAnswer:
 
         if debug:
                 os.environ["DEBUG"] = "1"
 
-        query += "\n" + self.generator.rephrase(query)
+        rephrased_query = query +"\n" + self.generator.rephrase(query)
 
         chunks: list[Chunk] = self.search(
                 query,
@@ -196,7 +266,30 @@ class Cli:
                 no_output=True
             )
 
-        Logger.log(self.generator.answer(
-                query,
-                chunks
-            ).strip())
+        retrieved_sources = [c.minimal_source for c in chunks]
+
+        answer_str = self.generator.answer(
+                        rephrased_query,
+                        chunks
+                    ).strip()
+
+        answer = MinimalAnswer(
+            question_str = query,
+            question_id = "None",
+            retrieved_sources=retrieved_sources,
+            answer = answer_str
+        )
+
+        if no_output:
+            return answer
+
+        Logger.log(f"Answer for \"{query}\":")
+        Logger.log(answer_str)
+
+        ResultManager.store_result(output_path, StudentSearchResultsAndAnswer(
+                search_results = [answer],
+                k = 1
+            )
+        )
+
+        return answer
