@@ -16,12 +16,6 @@ from src.utils.result_manager import ResultManager
 from src.utils.terminal import Colors, TerminalStyler
 
 
-def create_dataset(dataset_path: str) -> RagDataset:
-    return RagDataset.model_validate_json(
-        ResultManager.read_result(dataset_path)
-    )
-
-
 class Cli:
     def __init__(self) -> None:
         self.generator: Generator = Generator()
@@ -45,7 +39,7 @@ class Cli:
             Logger.log("chunker selector initialized.", LogLevel.DEBUG)
             chunks: list[Chunk] = chunker_selector.folder_chunking(input_path)
             Logger.log(
-                    f"successfully chunked {len(chunks)} chunks from {input_path}."
+                    f"Successfully chunked {len(chunks)} chunks from {input_path}."
                 )
 
             formatted_chunks: list[dict[str, Any]] = [
@@ -54,7 +48,7 @@ class Cli:
 
             ResultManager.store_result(output_path, formatted_chunks)
 
-            Logger.log(f"chunks writted in {output_path}.", LogLevel.DEBUG)
+            Logger.log(f"Chunks writted in {output_path}.", LogLevel.DEBUG)
 
         except Exception as e:
             Logger.log(e, LogLevel.ERROR)
@@ -62,19 +56,53 @@ class Cli:
     def search_dataset(
                 self,
                 dataset_path: str =\
-                    "./data/public/UnansweredQuestions/dataset_docs_public.json",
-                k: int = 10,
+                "./data/public/UnansweredQuestions/dataset_docs_public.json",
+                chunk_path: str = "./data/processed/chunks.json",
+                output_path: str = "./data/processed/search_results.json",
+                force_index: bool = False,
+                k: int = 5,
                 debug: bool = False
             ) -> None:
         if debug:
             os.environ["DEBUG"] = "1"
-        try:
-            dataset: RagDataset = create_dataset(dataset_path)
-            Logger.log(f"dataset at {dataset_path} parsed.", LogLevel.DEBUG)
+        if force_index:
+            Logger.log("Indexing forced", LogLevel.DEBUG)
+            self.index(output_path=chunk_path)
 
-        except Exception as e:
-            Logger.log(e, LogLevel.ERROR)
+        dataset = RagDataset.model_validate(
+            ResultManager.read_result(dataset_path)
+        )
+        Logger.log(f"Dataset at {dataset_path} parsed.", LogLevel.DEBUG)
 
+        chunks: list[Chunk] = []
+
+        for chunk in ResultManager.read_result(chunk_path):
+            chunks.append(
+                Chunk.from_chunk_data(ChunkData.model_validate(chunk))
+            )
+
+        search_results = []
+
+        for question in dataset.rag_questions:
+            scores = self.search(
+                question.question,
+                k=k,
+                chunk_path=chunk_path,
+                no_output=True,
+                chunks=chunks
+            )
+
+            search_results.append(MinimalSearchResults(
+                question_id = question.question_id,
+                question_str = question.question,
+                retrieved_sources = [c.minimal_source for c in scores]
+            ))
+
+            ResultManager.store_result(output_path, StudentSearchResults(
+                    search_results = search_results,
+                    k = len(search_results)
+                )
+            )
 
     def search(
                 self,
@@ -82,6 +110,7 @@ class Cli:
                 k: int = 10,
                 chunk_path: str = "./data/processed/chunks.json",
                 output_path: str = "./data/processed/search_results.json",
+                chunks: list[Chunk] = [],
                 force_index: bool = False,
                 no_output: bool = False,
                 debug: bool = False
@@ -89,13 +118,14 @@ class Cli:
         if debug:
                 os.environ["DEBUG"] = "1"
         if force_index:
-            Logger.log("indexing forced")
+            Logger.log("Indexing forced", LogLevel.DEBUG)
             self.index(output_path=chunk_path)
 
-        chunks: list[Chunk] = []
-
-        for chunk in ResultManager.read_result(chunk_path):
-            chunks.append(Chunk.from_chunk_data(ChunkData.model_validate(chunk)))
+        if not chunks:
+            for chunk in ResultManager.read_result(chunk_path):
+                chunks.append(
+                    Chunk.from_chunk_data(ChunkData.model_validate(chunk))
+                )
 
         bm25: BM25 = BM25(chunks=chunks)
 

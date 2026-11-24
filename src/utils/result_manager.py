@@ -13,8 +13,10 @@ class ResultManager:
         try:
             path = Path(output_path)
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.touch()
-            Logger.log(f"path: {output_path} initialized.", LogLevel.DEBUG)
+
+            if not path.exists():
+                path.touch()
+                Logger.log(f"Path: {output_path} initialized.", LogLevel.DEBUG)
 
             with open(output_path, "w") as f:
                 json.dump(
@@ -32,7 +34,7 @@ class ResultManager:
     @staticmethod
     def read_result(input_path: str) -> Any:
         try:
-            Logger.log(f"reading from {input_path}.", LogLevel.DEBUG)
+            Logger.log(f"Reading from {input_path}.", LogLevel.DEBUG)
             with open(input_path, "r") as f:
                 return json.load(f)
         except Exception as e:
