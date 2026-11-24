@@ -17,8 +17,9 @@ from src.utils.terminal import Colors, TerminalStyler
 
 
 def create_dataset(dataset_path: str) -> RagDataset:
-    with open(dataset_path) as f:
-        return RagDataset.model_validate_json(f.read())
+    return RagDataset.model_validate_json(
+        ResultManager.read_result(dataset_path)
+    )
 
 
 class Cli:
