@@ -19,6 +19,17 @@ class Chunk:
         self.start_index: int = start_index
         self.end_index: int = end_index
 
+    def _key(self) -> tuple[str, int, int, str]:
+        return (self.file_path, self.start_index, self.end_index, self.content)
+
+    def __hash__(self) -> int:
+        return hash(self._key())
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Chunk):
+            return NotImplemented
+        return self._key() == other._key()
+
     @classmethod
     def from_chunk_data(cls, chunk: ChunkData) -> 'Chunk':
         return cls(
@@ -41,7 +52,7 @@ class Chunk:
             tokens.append(lower_token)
 
             for part in token.split("_"):
-                if part:
+                if part and part.lower() != lower_token:
                     tokens.append(part.lower())
 
             parts = re.findall(

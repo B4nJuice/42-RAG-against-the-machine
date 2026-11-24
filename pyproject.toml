@@ -10,6 +10,7 @@ dependencies = [
     "langchain-text-splitters==1.1.2",
     "numpy>=2.5.2",
     "pydantic>=2.13.4",
+    "tqdm>=4.70.0",
     "transformers[torch]>=5.16.1",
 ]
 

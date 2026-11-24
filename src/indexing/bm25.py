@@ -4,6 +4,7 @@ from math import log
 import numpy as np
 
 from src.chunking.chunk import Chunk
+from src.utils.logger import Logger
 
 
 class BM25:
@@ -17,6 +18,8 @@ class BM25:
     ) -> None:
         self.chunks = chunks
         self.global_df: Counter = Counter()
+
+        self.stats_cache: dict[int, bool] = {}
 
         self.k = k
         self.b = b
@@ -41,7 +44,14 @@ class BM25:
     def compute_stats(self) -> None:
         total_len = 0
 
-        for i, chunk in enumerate(self.chunks):
+        key = hash(tuple(self.chunks))
+
+        if self.stats_cache.get(key):
+            return
+
+        for i, chunk in enumerate(Logger.progress(
+                    self.chunks, "Computing BM25 stats", leave=False
+                )):
             self.global_df.update(chunk.df.keys())
             total_len += chunk.len
 
@@ -54,6 +64,9 @@ class BM25:
         self.avg_len = total_len / self.n_chunks
 
         self._compute_parameter_stats()
+
+        key = hash(tuple(self.chunks))
+        self.stats_cache[key] = True
 
     def _compute_parameter_stats(self) -> None:
         lengths = np.array(

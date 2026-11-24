@@ -43,7 +43,8 @@ class Cli:
                 )
 
             formatted_chunks: list[dict[str, Any]] = [
-                c.chunk_data.model_dump() for c in chunks
+                c.chunk_data.model_dump()
+                for c in Logger.progress(chunks, "Formatting chunks")
             ]
 
             ResultManager.store_result(output_path, formatted_chunks)
@@ -76,20 +77,27 @@ class Cli:
 
         chunks: list[Chunk] = []
 
-        for chunk in ResultManager.read_result(chunk_path):
+        for chunk in Logger.progress(
+                    ResultManager.read_result(chunk_path), "Loading chunks"
+                ):
             chunks.append(
                 Chunk.from_chunk_data(ChunkData.model_validate(chunk))
             )
 
         search_results = []
 
-        for question in dataset.rag_questions:
+        bm25: BM25 = BM25(chunks=chunks)
+
+        for question in Logger.progress(
+                    dataset.rag_questions, "Searching questions"
+                ):
             scores = self.search(
                 question.question,
                 k=k,
                 chunk_path=chunk_path,
                 no_output=True,
-                chunks=chunks
+                chunks=chunks,
+                bm25=bm25,
             )
 
             search_results.append(MinimalSearchResults(
@@ -111,6 +119,7 @@ class Cli:
                 chunk_path: str = "./data/processed/chunks.json",
                 output_path: str = "./data/processed/search_results.json",
                 chunks: list[Chunk] = [],
+                bm25: BM25 | None = None,
                 force_index: bool = False,
                 no_output: bool = False,
                 debug: bool = False
@@ -122,12 +131,15 @@ class Cli:
             self.index(output_path=chunk_path)
 
         if not chunks:
-            for chunk in ResultManager.read_result(chunk_path):
+            for chunk in Logger.progress(
+                        ResultManager.read_result(chunk_path), "Loading chunks"
+                    ):
                 chunks.append(
                     Chunk.from_chunk_data(ChunkData.model_validate(chunk))
                 )
 
-        bm25: BM25 = BM25(chunks=chunks)
+        if not bm25:
+            bm25 = BM25(chunks=chunks)
 
         bm25.compute_stats()
 

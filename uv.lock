@@ -11,6 +11,7 @@ dependencies = [
     { name = "langchain-text-splitters" },
     { name = "numpy" },
     { name = "pydantic" },
+    { name = "tqdm" },
     { name = "transformers", extra = ["torch"] },
 ]
 
@@ -20,6 +21,7 @@ requires-dist = [
     { name = "langchain-text-splitters", specifier = "==1.1.2" },
     { name = "numpy", specifier = ">=2.5.2" },
     { name = "pydantic", specifier = ">=2.13.4" },
+    { name = "tqdm", specifier = ">=4.70.0" },
     { name = "transformers", extras = ["torch"], specifier = ">=5.16.1" },
 ]
 

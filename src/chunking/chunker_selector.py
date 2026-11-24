@@ -1,9 +1,13 @@
+from os import walk
+from typing import Any
+
+from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_text_splitters.base import Language
-from langchain_core.documents import Document
+
+from src.utils.logger import Logger
+
 from .chunk import Chunk
-from typing import Any
-from os import walk
 
 LANGUAGE_PARAMS = {
     Language.PYTHON: {"chunk_size": 2000, "chunk_overlap": 200},
@@ -102,12 +106,14 @@ class ChunkerSelector:
     def folder_chunking(self, folder_path: str) -> list[Chunk]:
         chunks: list[Chunk] = []
 
-        for (dirpath, _, filenames) in walk(folder_path):
-            for file_name in filenames:
-                suffix: str = self.get_suffix(file_name)
-                if suffix not in LANGUAGE_TRANSLATION.keys():
-                    continue
-                chunks += self.split_text(f"{dirpath}/{file_name}")
+        file_paths: list[str] = [
+            f"{dirpath}/{file_name}"
+            for (dirpath, _, filenames) in walk(folder_path)
+            for file_name in filenames
+            if self.get_suffix(file_name) in LANGUAGE_TRANSLATION
+        ]
+
+        for file_path in Logger.progress(file_paths, "Chunking files"):
+            chunks += self.split_text(file_path)
 
         return chunks
-

@@ -1,6 +1,9 @@
+from collections.abc import Iterable
 from enum import Enum
 from os import environ
-from typing import cast
+from typing import Any, cast
+
+from tqdm import tqdm
 
 from src.utils.terminal import Colors, TerminalStyler
 
@@ -15,9 +18,30 @@ class LogLevel(Enum):
 
 class Logger:
     @staticmethod
-    def log(message: object, log_level: LogLevel = LogLevel.INFO) -> None:
-        if log_level is LogLevel.DEBUG and environ.get("DEBUG") != "1":
-            return
+    def _label(log_level: LogLevel) -> str:
         colors = cast(list[Colors], log_level.value[0])
         label = cast(str, log_level.value[1])
-        print(TerminalStyler.colored_text(colors, label), str(message))
+        return TerminalStyler.colored_text(colors, label)
+
+    @staticmethod
+    def _debug_enabled() -> bool:
+        return environ.get("DEBUG") == "1"
+
+    @staticmethod
+    def log(message: object, log_level: LogLevel = LogLevel.INFO) -> None:
+        if log_level is LogLevel.DEBUG and not Logger._debug_enabled():
+            return
+        tqdm.write(f"{Logger._label(log_level)} {message}")
+
+    @staticmethod
+    def progress[T](
+                iterable: Iterable[T],
+                desc: str = "",
+                **kwargs: Any
+            ) -> Iterable[T]:
+        return tqdm(
+            iterable,
+            desc=f"{Logger._label(LogLevel.DEBUG)} {desc}",
+            disable=not Logger._debug_enabled(),
+            **kwargs
+        )

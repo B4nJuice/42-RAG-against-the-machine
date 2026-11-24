@@ -29,14 +29,14 @@ class ResultManager:
                 f.write("\n")
         except Exception as e:
             Logger.log(e, LogLevel.ERROR)
-            raise RagError("stopped")
+            raise RagError("Stopped")
 
     @staticmethod
     def read_result(input_path: str) -> Any:
         try:
-            Logger.log(f"Reading from {input_path}.", LogLevel.DEBUG)
+            Logger.log(f"Reading {input_path}.", LogLevel.DEBUG)
             with open(input_path, "r") as f:
                 return json.load(f)
         except Exception as e:
             Logger.log(e, LogLevel.ERROR)
-            raise RagError("stopped")
+            raise RagError("Stopped")
