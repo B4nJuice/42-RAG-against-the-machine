@@ -1,8 +1,8 @@
-from src.utils.terminal import Colors, TerminalStyler
-
-from os import environ
 from enum import Enum
+from os import environ
 from typing import cast
+
+from src.utils.terminal import Colors, TerminalStyler
 
 
 class LogLevel(Enum):
@@ -13,7 +13,7 @@ class LogLevel(Enum):
     FATAL = [[Colors.MAGENTA, Colors.BOLD], "[FATAL]"]
 
 
-class Logger():
+class Logger:
     @staticmethod
     def log(message: object, log_level: LogLevel = LogLevel.INFO) -> None:
         if log_level is LogLevel.DEBUG and environ.get("DEBUG") != "1":
