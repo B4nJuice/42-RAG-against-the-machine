@@ -62,7 +62,7 @@ class Generator:
             skip_special_tokens=True,
         )
 
-        return " ".join(answer)
+        return "".join(answer)
 
     def answer(self, query: str, chunks: list[Chunk]) -> str:
         context = "\n\n".join(c.content for c in chunks)
