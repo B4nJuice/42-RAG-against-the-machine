@@ -24,8 +24,8 @@ class Cli:
 
     def index(
                 self,
-                input_path: str = "./data/raw/",
-                output_path: str = "./data/processed/chunks.json",
+                input_path: str = "data/raw/",
+                output_path: str = "data/processed/chunks.json",
                 max_chunk_size: int = 2000,
                 max_chunk_overlap: int = 200,
                 debug: bool = False
@@ -59,11 +59,11 @@ class Cli:
     def search_dataset(
                 self,
                 dataset_path: str =\
-                "./data/public/UnansweredQuestions/dataset_docs_public.json",
-                chunk_path: str = "./data/processed/chunks.json",
-                output_path: str = "./data/processed/search_results.json",
+                "data/public/UnansweredQuestions/dataset_docs_public.json",
+                chunk_path: str = "data/processed/chunks.json",
+                output_path: str = "data/processed/search_results.json",
                 force_index: bool = False,
-                k: int = 5,
+                k: int = 10,
                 debug: bool = False
             ) -> None:
         if debug:
@@ -104,13 +104,13 @@ class Cli:
 
             search_results.append(MinimalSearchResults(
                 question_id = question.question_id,
-                question_str = question.question,
+                question = question.question,
                 retrieved_sources = [c.minimal_source for c in scores]
             ))
 
             ResultManager.store_result(output_path, StudentSearchResults(
                     search_results = search_results,
-                    k = len(search_results)
+                    k = k
                 )
             )
 
@@ -118,8 +118,8 @@ class Cli:
                 self,
                 query: str,
                 k: int = 10,
-                chunk_path: str = "./data/processed/chunks.json",
-                output_path: str = "./data/processed/search_results.json",
+                chunk_path: str = "data/processed/chunks.json",
+                output_path: str = "data/processed/search_results.json",
                 chunks: list[Chunk] = [],
                 bm25: BM25 | None = None,
                 force_index: bool = False,
@@ -160,11 +160,11 @@ class Cli:
             search_results = [
                 MinimalSearchResults(
                     question_id = "None",
-                    question_str = query,
+                    question = query,
                     retrieved_sources = [c.minimal_source for c in scores]
                 )
             ],
-        k = 1)
+        k = k)
 
         Logger.log(f"Top {top_k} sources for \"{query}\" :")
 
@@ -182,11 +182,11 @@ class Cli:
     def answer_dataset(
                 self,
                 dataset_path: str =\
-                "./data/public/UnansweredQuestions/dataset_docs_public.json",
-                chunk_path: str = "./data/processed/chunks.json",
-                output_path: str = "./data/processed/answer_results.json",
+                "data/public/UnansweredQuestions/dataset_docs_public.json",
+                chunk_path: str = "data/processed/chunks.json",
+                output_path: str = "data/processed/answer_results.json",
                 force_index: bool = False,
-                k: int = 5,
+                k: int = 10,
                 debug: bool = False
             ) -> None:
         if debug:
@@ -227,7 +227,7 @@ class Cli:
             )
             answer = MinimalAnswer(
                 question_id=question.question_id,
-                question_str=question.question,
+                question=question.question,
                 retrieved_sources=[c.minimal_source for c in scores],
                 answer=self.generator.answer(
                     rephrased_query,
@@ -248,7 +248,7 @@ class Cli:
                 self,
                 query: str,
                 k: int = 10,
-                output_path: str = "./data/processed/answer_result.json",
+                output_path: str = "data/processed/answer_results.json",
                 force_index: bool = False,
                 no_output: bool = False,
                 debug: bool = False
@@ -274,7 +274,7 @@ class Cli:
                     ).strip()
 
         answer = MinimalAnswer(
-            question_str = query,
+            question = query,
             question_id = "None",
             retrieved_sources=retrieved_sources,
             answer = answer_str
