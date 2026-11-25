@@ -33,9 +33,9 @@ class Generator:
                     dtype="auto",
                     cache_dir="/tmp/transformers_models_cache"
                 )
+        self.query_cache: dict[int, str] = {}
 
     def _call(self, messages: list[dict[str, str]]) -> str:
-
         inputs = self.tokenizer.apply_chat_template(
             messages,
             return_tensors="pt",
@@ -64,6 +64,11 @@ class Generator:
         return "".join(answer)
 
     def answer(self, query: str, chunks: list[Chunk]) -> str:
+        key = hash((query, hash(tuple(chunks))))
+
+        if self.query_cache.get(key):
+            return self.query_cache[key]
+
         context = "\n\n".join(c.content for c in chunks)
 
         examples = [
@@ -102,7 +107,11 @@ instead of `self.model`."),
             }
         )
 
-        return self._call(messages)
+        answer = self._call(messages)
+
+        self.query_cache[key] = answer
+
+        return answer
 
     def rephrase(self, query: str) -> str:
         messages = [

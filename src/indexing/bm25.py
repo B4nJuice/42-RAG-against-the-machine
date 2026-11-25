@@ -65,7 +65,6 @@ class BM25:
 
         self._compute_parameter_stats()
 
-        key = hash(tuple(self.chunks))
         self.stats_cache[key] = True
 
     def _compute_parameter_stats(self) -> None:
