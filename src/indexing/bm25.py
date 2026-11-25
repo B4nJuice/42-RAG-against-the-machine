@@ -4,7 +4,14 @@ from math import log
 import numpy as np
 
 from src.chunking.chunk import Chunk
-from src.utils.logger import Logger
+from src.utils.logger import Logger, LogLevel
+from src.utils.models import (
+    ChunkData,
+    MinimalSearchResults,
+    StudentSearchResults,
+)
+from src.utils.result_manager import ResultManager
+from src.utils.terminal import Colors, TerminalStyler
 
 
 class BM25:
@@ -50,6 +57,58 @@ class BM25:
         )
 
         self.token_boost = {}
+
+    @classmethod
+    def from_file(cls, chunk_path: str) -> 'BM25':
+        return cls(chunks=[
+            Chunk.from_chunk_data(ChunkData.model_validate(chunk))
+            for chunk in Logger.progress(
+                ResultManager.read_result(chunk_path), "Loading chunks"
+            )
+        ])
+
+    def search(
+                self,
+                query: str,
+                k: int = 10,
+                output_path: str = "data/processed/search_results.json",
+                no_output: bool = False
+            ) -> list[Chunk]:
+        self.compute_stats()
+
+        scores: list[Chunk] = self.get_best_chunk(query, k)
+
+        top_k = min(k, len(scores))
+
+        if top_k != k:
+            Logger.log(f"Impossible to retrieve top {k} sources because there\
+    is only {top_k} chunks.", LogLevel.DEBUG)
+
+        if no_output:
+            return scores
+
+        search_results = StudentSearchResults(
+            search_results = [
+                MinimalSearchResults(
+                    question_id = "None",
+                    question = query,
+                    retrieved_sources = [c.minimal_source for c in scores]
+                )
+            ],
+        k = k)
+
+        Logger.log(f"Top {top_k} sources for \"{query}\" :")
+
+        for top, chunk in enumerate(scores):
+            Logger.log(
+                TerminalStyler.colored_text(
+                    [Colors.BLUE], f"[{top + 1}] "
+                ) + chunk.file_path + f" [{chunk.start_index}:{chunk.end_index}]"
+            )
+
+        ResultManager.store_result(output_path, search_results)
+
+        return scores
 
     def compute_stats(self) -> None:
         total_len = 0
@@ -135,15 +194,15 @@ class BM25:
 
                 scores[chunk_index] += tf_score * idf
 
-            k = min(self.n_chunks, k)
+        k = min(self.n_chunks, k)
 
-            indices = np.argpartition(
-                scores,
-                -k,
-            )[-k:]
+        indices = np.argpartition(
+            scores,
+            -k,
+        )[-k:]
 
-            indices = indices[
-                np.argsort(scores[indices])[::-1]
-            ]
+        indices = indices[
+            np.argsort(scores[indices])[::-1]
+        ]
 
         return [self.chunks[i] for i in indices]
