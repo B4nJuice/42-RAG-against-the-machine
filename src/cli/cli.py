@@ -56,64 +56,6 @@ class Cli:
         except Exception as e:
             Logger.log(e, LogLevel.ERROR)
 
-    def search_dataset(
-                self,
-                dataset_path: str =\
-                "data/public/UnansweredQuestions/dataset_docs_public.json",
-                chunk_path: str = "data/processed/chunks.json",
-                output_path: str = "data/processed/search_results.json",
-                force_index: bool = False,
-                k: int = 10,
-                debug: bool = False
-            ) -> None:
-        if debug:
-            os.environ["DEBUG"] = "1"
-        if force_index:
-            Logger.log("Indexing forced", LogLevel.DEBUG)
-            self.index(output_path=chunk_path)
-
-        dataset = RagDataset.model_validate(
-            ResultManager.read_result(dataset_path)
-        )
-        Logger.log(f"Dataset at {dataset_path} parsed.", LogLevel.DEBUG)
-
-        chunks: list[Chunk] = []
-
-        for chunk in Logger.progress(
-                    ResultManager.read_result(chunk_path), "Loading chunks"
-                ):
-            chunks.append(
-                Chunk.from_chunk_data(ChunkData.model_validate(chunk))
-            )
-
-        search_results = []
-
-        bm25: BM25 = BM25(chunks=chunks)
-
-        for question in Logger.progress(
-                    dataset.rag_questions, "Searching questions"
-                ):
-            scores = self.search(
-                question.question,
-                k=k,
-                chunk_path=chunk_path,
-                no_output=True,
-                chunks=chunks,
-                bm25=bm25,
-            )
-
-            search_results.append(MinimalSearchResults(
-                question_id = question.question_id,
-                question = question.question,
-                retrieved_sources = [c.minimal_source for c in scores]
-            ))
-
-            ResultManager.store_result(output_path, StudentSearchResults(
-                    search_results = search_results,
-                    k = k
-                )
-            )
-
     def search(
                 self,
                 query: str,
@@ -178,6 +120,114 @@ class Cli:
         ResultManager.store_result(output_path, search_results)
 
         return scores
+
+    def search_dataset(
+                self,
+                dataset_path: str =\
+                "data/public/UnansweredQuestions/dataset_docs_public.json",
+                chunk_path: str = "data/processed/chunks.json",
+                output_path: str = "data/processed/search_results.json",
+                force_index: bool = False,
+                k: int = 10,
+                debug: bool = False
+            ) -> None:
+        if debug:
+            os.environ["DEBUG"] = "1"
+        if force_index:
+            Logger.log("Indexing forced", LogLevel.DEBUG)
+            self.index(output_path=chunk_path)
+    
+        dataset = RagDataset.model_validate(
+            ResultManager.read_result(dataset_path)
+        )
+        Logger.log(f"Dataset at {dataset_path} parsed.", LogLevel.DEBUG)
+    
+        chunks: list[Chunk] = []
+    
+        for chunk in Logger.progress(
+                    ResultManager.read_result(chunk_path), "Loading chunks"
+                ):
+            chunks.append(
+                Chunk.from_chunk_data(ChunkData.model_validate(chunk))
+            )
+    
+        search_results = []
+    
+        bm25: BM25 = BM25(chunks=chunks)
+    
+        for question in Logger.progress(
+                    dataset.rag_questions, "Searching questions"
+                ):
+            scores = self.search(
+                question.question,
+                k=k,
+                chunk_path=chunk_path,
+                no_output=True,
+                chunks=chunks,
+                bm25=bm25,
+            )
+    
+            search_results.append(MinimalSearchResults(
+                question_id = question.question_id,
+                question = question.question,
+                retrieved_sources = [c.minimal_source for c in scores]
+            ))
+    
+            ResultManager.store_result(output_path, StudentSearchResults(
+                    search_results = search_results,
+                    k = k
+                )
+            )
+
+    def answer(
+                self,
+                query: str,
+                k: int = 10,
+                output_path: str = "data/processed/answer_results.json",
+                force_index: bool = False,
+                no_output: bool = False,
+                debug: bool = False
+            ) -> MinimalAnswer:
+    
+        if debug:
+                os.environ["DEBUG"] = "1"
+    
+        rephrased_query = query +"\n" + self.generator.rephrase(query)
+    
+        chunks: list[Chunk] = self.search(
+                query,
+                k=k,
+                force_index=force_index,
+                no_output=True
+            )
+    
+        retrieved_sources = [c.minimal_source for c in chunks]
+    
+        answer_str = self.generator.answer(
+                        rephrased_query,
+                        chunks
+                    ).strip()
+    
+        answer = MinimalAnswer(
+            question = query,
+            question_id = "None",
+            retrieved_sources=retrieved_sources,
+            answer = answer_str
+        )
+    
+        if no_output:
+            return answer
+    
+        Logger.log(f"Answer for \"{query}\":")
+        Logger.log(answer_str)
+    
+        ResultManager.store_result(output_path, StudentSearchResultsAndAnswer(
+                search_results = [answer],
+                k = 1
+            )
+        )
+    
+        return answer
 
     def answer_dataset(
                 self,
@@ -244,52 +294,3 @@ class Cli:
                 )
             )
 
-    def answer(
-                self,
-                query: str,
-                k: int = 10,
-                output_path: str = "data/processed/answer_results.json",
-                force_index: bool = False,
-                no_output: bool = False,
-                debug: bool = False
-            ) -> MinimalAnswer:
-
-        if debug:
-                os.environ["DEBUG"] = "1"
-
-        rephrased_query = query +"\n" + self.generator.rephrase(query)
-
-        chunks: list[Chunk] = self.search(
-                query,
-                k=k,
-                force_index=force_index,
-                no_output=True
-            )
-
-        retrieved_sources = [c.minimal_source for c in chunks]
-
-        answer_str = self.generator.answer(
-                        rephrased_query,
-                        chunks
-                    ).strip()
-
-        answer = MinimalAnswer(
-            question = query,
-            question_id = "None",
-            retrieved_sources=retrieved_sources,
-            answer = answer_str
-        )
-
-        if no_output:
-            return answer
-
-        Logger.log(f"Answer for \"{query}\":")
-        Logger.log(answer_str)
-
-        ResultManager.store_result(output_path, StudentSearchResultsAndAnswer(
-                search_results = [answer],
-                k = 1
-            )
-        )
-
-        return answer

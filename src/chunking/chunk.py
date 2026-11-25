@@ -1,7 +1,7 @@
 import re
 import unicodedata
 from collections import Counter
-from functools import lru_cache
+from functools import cache
 
 from src.utils.models import ChunkData, MinimalSource
 
@@ -40,6 +40,7 @@ class Chunk:
             )
 
     @staticmethod
+    @cache
     def tokenize(content: str) -> list[str]:
         text = unicodedata.normalize("NFKC", content)
 
@@ -69,22 +70,21 @@ class Chunk:
         return tokens
 
     @property
-    @lru_cache
+    @cache
     def tokenized_content(self) -> list[str]:
         return self.tokenize(self.content)
 
     @property
-    @lru_cache
+    @cache
     def df(self) -> Counter:
         return Counter(self.tokenized_content)
 
     @property
-    @lru_cache
     def len(self) -> int:
         return len(self.content)
 
     @property
-    @lru_cache
+    @cache
     def minimal_source(self) -> MinimalSource:
         return(
             MinimalSource(
