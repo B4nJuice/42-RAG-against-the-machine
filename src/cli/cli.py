@@ -19,8 +19,10 @@ from src.utils.terminal import Colors, TerminalStyler
 
 
 class Cli:
+    generator: Generator
+
     def __init__(self) -> None:
-        self.generator: Generator = Generator()
+        self.generator = Generator()
 
     def index(
                 self,

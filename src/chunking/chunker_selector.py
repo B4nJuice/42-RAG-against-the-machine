@@ -32,12 +32,13 @@ LANGUAGE_TRANSLATION = {
 }
 
 class ChunkerSelector:
+    chunkers: dict[Language | str, RecursiveCharacterTextSplitter]
+
     def __init__(self,
             max_chunk_size: int = 2000,
             max_chunk_overlap: int = 200
         ):
-        self.chunkers: dict[Language | str, RecursiveCharacterTextSplitter] =\
-            {}
+        self.chunkers = {}
         for k, v in LANGUAGE_PARAMS.items():
             v["chunk_size"] = min(v["chunk_size"], max_chunk_size)
             v["chunk_overlap"] = min(v["chunk_overlap"], max_chunk_overlap)

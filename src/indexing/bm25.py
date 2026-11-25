@@ -8,6 +8,19 @@ from src.utils.logger import Logger
 
 
 class BM25:
+    chunks: list[Chunk]
+    k: float
+    b: float
+    l: float
+    delta: float
+    global_df: Counter[str]
+    stats_cache: dict[int, bool]
+    avg_len: float
+    n_chunks: int
+    inverted_index: dict[str, list[tuple[int, int]]]
+    compared_lens: np.ndarray
+    token_boost: dict[str, float]
+
     def __init__(
         self,
         chunks: list[Chunk],
@@ -17,9 +30,9 @@ class BM25:
         delta: float = 0
     ) -> None:
         self.chunks = chunks
-        self.global_df: Counter = Counter()
+        self.global_df = Counter()
 
-        self.stats_cache: dict[int, bool] = {}
+        self.stats_cache = {}
 
         self.k = k
         self.b = b
@@ -29,17 +42,14 @@ class BM25:
         self.avg_len = 1.0
         self.n_chunks = len(chunks)
 
-        self.inverted_index: dict[
-            str,
-            list[tuple[int, int]],
-        ] = {}
+        self.inverted_index = {}
 
         self.compared_lens = np.empty(
             self.n_chunks,
             dtype=np.float32,
         )
 
-        self.token_boost: dict[str, float] = {}
+        self.token_boost = {}
 
     def compute_stats(self) -> None:
         total_len = 0

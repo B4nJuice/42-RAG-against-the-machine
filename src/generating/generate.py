@@ -19,6 +19,7 @@ class Generator:
     model_name: str
     tokenizer: PreTrainedTokenizerBase
     model: PreTrainedModel
+    query_cache: dict[int, str]
 
     def __init__(self, model_name: str = "Qwen/Qwen3.5-0.8B") -> None:
         self.model_name = model_name
@@ -33,7 +34,7 @@ class Generator:
                     dtype="auto",
                     cache_dir="/tmp/transformers_models_cache"
                 )
-        self.query_cache: dict[int, str] = {}
+        self.query_cache = {}
 
     def _call(self, messages: list[dict[str, str]]) -> str:
         inputs = self.tokenizer.apply_chat_template(
