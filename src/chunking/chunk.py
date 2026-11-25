@@ -2,6 +2,7 @@ import re
 import unicodedata
 from collections import Counter
 from functools import cache
+from typing import cast, override
 
 from src.utils.models import ChunkData, MinimalSource
 
@@ -22,9 +23,12 @@ class Chunk:
     def _key(self) -> tuple[str, int, int, str]:
         return (self.file_path, self.start_index, self.end_index, self.content)
 
+    @override
     def __hash__(self) -> int:
         return hash(self._key())
 
+
+    @override
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Chunk):
             return NotImplemented
@@ -44,9 +48,9 @@ class Chunk:
     def tokenize(content: str) -> list[str]:
         text = unicodedata.normalize("NFKC", content)
 
-        raw_tokens = re.findall(r"[A-Za-z0-9_]+", text)
+        raw_tokens = cast(list[str], re.findall(r"[A-Za-z0-9_]+", text))
 
-        tokens = []
+        tokens: list[str] = []
 
         for token in raw_tokens:
             lower_token = token.lower()
@@ -56,10 +60,10 @@ class Chunk:
                 if part and part.lower() != lower_token:
                     tokens.append(part.lower())
 
-            parts = re.findall(
+            parts = cast(list[str], re.findall(
                 r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|$)|[0-9]+",
                 token
-            )
+            ))
 
             tokens.extend(
                 part.lower()

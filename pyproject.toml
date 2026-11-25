@@ -10,6 +10,7 @@ dependencies = [
     "langchain-text-splitters==1.1.2",
     "numpy>=2.5.2",
     "pydantic>=2.13.4",
+    "sentence-transformers>=6.3.0",
     "tqdm>=4.70.0",
     "transformers[torch]>=5.16.1",
 ]
@@ -17,3 +18,9 @@ dependencies = [
 [tool.uv]
 cache-dir = "/tmp/.uv_cache"
 link-mode = "symlink"
+
+[tool.basedpyright]
+include = ["src"]
+exclude = ["data", "moulinette", "learning", "private", "**/__pycache__", ".venv"]
+venvPath = "."
+venv = ".venv"
