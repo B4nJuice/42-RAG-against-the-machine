@@ -8,10 +8,12 @@ from src.utils.result_manager import ResultManager
 
 class ChunkList:
     chunks: list[Chunk]
+    n_chunks: int
     key: int
 
     def __init__(self, chunks: list[Chunk]) -> None:
         self.chunks = chunks
+        self.n_chunks = len(chunks)
         self.chunks.sort(key=lambda c: len(c.content))
         self.key = hash(tuple(self.chunks))
 

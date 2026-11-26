@@ -1,10 +1,12 @@
 from collections import Counter
 from math import log
+from typing import override
 
 import numpy as np
 
 from src.chunking.chunk import Chunk
 from src.chunking.chunk_list import ChunkList
+from src.indexing.indexer import Indexer
 from src.utils.logger import Logger, LogLevel
 from src.utils.models import (
     MinimalSearchResults,
@@ -14,8 +16,7 @@ from src.utils.result_manager import ResultManager
 from src.utils.terminal import Colors, TerminalStyler
 
 
-class BM25:
-    chunks: ChunkList
+class BM25(Indexer):
     k: float
     b: float
     l: float
@@ -29,14 +30,14 @@ class BM25:
     token_boost: dict[str, float]
 
     def __init__(
-        self,
-        chunks: ChunkList,
-        k: float = 1.2,
-        b: float = 0.75,
-        l: float = 1,
-        delta: float = 0
-    ) -> None:
-        self.chunks = chunks
+                self,
+                chunks: ChunkList,
+                k: float = 1.2,
+                b: float = 0.75,
+                l: float = 1,
+                delta: float = 0
+            ) -> None:
+        super().__init__(chunks)
         self.global_df = Counter()
 
         self.stats_cache = {}
@@ -58,10 +59,7 @@ class BM25:
 
         self.token_boost = {}
 
-    @classmethod
-    def from_file(cls, chunk_path: str) -> 'BM25':
-        return cls(chunks=ChunkList.from_file(chunk_path))
-
+    @override
     def search(
                 self,
                 query: str,
@@ -69,7 +67,6 @@ class BM25:
                 output_path: str = "data/processed/search_results.json",
                 no_output: bool = False
             ) -> list[Chunk]:
-        self.compute_stats()
 
         scores: list[Chunk] = self.get_best_chunk(query, k)
 
@@ -104,6 +101,54 @@ class BM25:
         ResultManager.store_result(output_path, search_results)
 
         return scores
+
+    @override
+    def get_best_chunk(self, query: str, k: int) -> list[Chunk]:
+        tokens = set(Chunk.tokenize(query))
+
+        scores = np.zeros(
+            self.n_chunks,
+            dtype=np.float32,
+        )
+
+        for token in tokens:
+            postings = self.inverted_index.get(token)
+
+            if not postings:
+                continue
+
+            idf = self.compute_idf(token)
+            boost = self.token_boost[token]
+
+            for chunk_index, tf in postings:
+                compared_len = self.compared_lens[
+                    chunk_index
+                ]
+
+                tf_score = tf * (self.k + 1) / (
+                    tf + compared_len
+                ) + self.delta
+
+                tf_score *= boost
+
+                scores[chunk_index] += tf_score * idf
+
+        k = min(self.n_chunks, k)
+
+        indices = np.argpartition(
+            scores,
+            -k,
+        )[-k:]
+
+        indices = indices[
+            np.argsort(scores[indices])[::-1]
+        ]
+
+        return [self.chunks.chunks[i] for i in indices]
+
+    @override
+    def compute(self) -> None:
+        self.compute_stats()
 
     def compute_stats(self) -> None:
         total_len = 0
@@ -149,6 +194,7 @@ class BM25:
             for token in self.global_df
         }
 
+    @Indexer.chunk_cache
     def compute_idf(self, token: str) -> float:
         n_token = self.global_df.get(token, 0)
 
@@ -156,46 +202,3 @@ class BM25:
             (self.n_chunks - n_token + 0.5)
             / (n_token + 0.5)
         )
-
-    def get_best_chunk(self, query: str, k: int) -> list[Chunk]:
-        tokens = set(Chunk.tokenize(query))
-
-        scores = np.zeros(
-            self.n_chunks,
-            dtype=np.float32,
-        )
-
-        for token in tokens:
-            postings = self.inverted_index.get(token)
-
-            if not postings:
-                continue
-
-            idf = self.compute_idf(token)
-            boost = self.token_boost[token]
-
-            for chunk_index, tf in postings:
-                compared_len = self.compared_lens[
-                    chunk_index
-                ]
-
-                tf_score = tf * (self.k + 1) / (
-                    tf + compared_len
-                ) + self.delta
-
-                tf_score *= boost
-
-                scores[chunk_index] += tf_score * idf
-
-        k = min(self.n_chunks, k)
-
-        indices = np.argpartition(
-            scores,
-            -k,
-        )[-k:]
-
-        indices = indices[
-            np.argsort(scores[indices])[::-1]
-        ]
-
-        return [self.chunks.chunks[i] for i in indices]

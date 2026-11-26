@@ -1,4 +1,5 @@
 from itertools import batched
+from typing import override
 
 import torch
 from sentence_transformers import SentenceTransformer
@@ -6,6 +7,7 @@ from torch import Tensor
 
 from src.chunking.chunk import Chunk
 from src.chunking.chunk_list import ChunkList
+from src.indexing.indexer import Indexer
 from src.utils.logger import Logger, LogLevel
 from src.utils.models import (
     MinimalSearchResults,
@@ -15,13 +17,9 @@ from src.utils.result_manager import ResultManager
 from src.utils.terminal import Colors, TerminalStyler
 
 
-class Embedder:
-    chunks: ChunkList
+class Embedder(Indexer):
     model: SentenceTransformer
     batch_size: int
-    n_chunks: int
-    embeddings: Tensor | None
-    embeddings_cache: dict[int, bool]
 
     def __init__(
                 self,
@@ -29,21 +27,15 @@ class Embedder:
                 model: str ="sentence-transformers/all-MiniLM-L6-v2",
                 batch_size: int = 32,
             ) -> None:
-        self.chunks = chunks
+        super().__init__(chunks)
         Logger.hook_transformers()
         self.model = SentenceTransformer(
             model,
             model_kwargs={"torch_dtype": torch.float16}
         )
         self.batch_size = batch_size
-        self.n_chunks = len(chunks.chunks)
-        self.embeddings = None
-        self.embeddings_cache = {}
 
-    @classmethod
-    def from_file(cls, chunk_path: str) -> 'Embedder':
-        return cls(chunks=ChunkList.from_file(chunk_path))
-
+    @override
     def search(
                 self,
                 query: str,
@@ -51,8 +43,6 @@ class Embedder:
                 output_path: str = "data/processed/search_results.json",
                 no_output: bool = False
             ) -> list[Chunk]:
-        self.vectorize_chunks()
-
         scores: list[Chunk] = self.get_best_chunk(query, k)
 
         top_k = min(k, len(scores))
@@ -87,11 +77,31 @@ class Embedder:
 
         return scores
 
-    def vectorize_chunks(self) -> Tensor:
-        if self.embeddings is not None \
-                and self.embeddings_cache.get(self.chunks.get_key()):
-            return self.embeddings
+    @override
+    def get_best_chunk(self, query: str, k: int) -> list[Chunk]:
+        embeddings = self.vectorize_chunks()
 
+        query_embedding = self.model.encode(
+            query,
+            convert_to_tensor=True,
+            normalize_embeddings=True,
+            show_progress_bar=False,
+        ).to(embeddings.device, embeddings.dtype)
+
+        scores = embeddings @ query_embedding
+
+        k = min(self.chunks.n_chunks, k)
+
+        indices = torch.topk(scores, k).indices.tolist()
+
+        return [self.chunks.chunks[i] for i in indices]
+
+    @override
+    def compute(self) -> None:
+        self.vectorize_chunks()
+
+    @Indexer.chunk_cache
+    def vectorize_chunks(self) -> Tensor:
         chunks_contents = [c.content for c in self.chunks.chunks]
 
         embeddings = [
@@ -111,29 +121,9 @@ class Embedder:
             )
         ]
 
-        self.embeddings = torch.cat(embeddings, dim=0)
+        embeddings = torch.cat(embeddings, dim=0)
 
-        for c, t in zip(self.chunks, self.embeddings):
+        for c, t in zip(self.chunks, embeddings):
             c.set_tensor(t)
 
-        self.embeddings_cache[self.chunks.get_key()] = True
-
-        return self.embeddings
-
-    def get_best_chunk(self, query: str, k: int) -> list[Chunk]:
-        embeddings = self.vectorize_chunks()
-
-        query_embedding = self.model.encode(
-            query,
-            convert_to_tensor=True,
-            normalize_embeddings=True,
-            show_progress_bar=False,
-        ).to(embeddings.device, embeddings.dtype)
-
-        scores = embeddings @ query_embedding
-
-        k = min(self.n_chunks, k)
-
-        indices = torch.topk(scores, k).indices.tolist()
-
-        return [self.chunks.chunks[i] for i in indices]
+        return embeddings
