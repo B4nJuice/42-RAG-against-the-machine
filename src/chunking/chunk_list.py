@@ -1,4 +1,4 @@
-from typing import cast
+from collections.abc import Iterator
 
 from src.chunking.chunk import Chunk
 from src.utils.logger import Logger
@@ -15,6 +15,9 @@ class ChunkList:
         self.chunks.sort(key=lambda c: len(c.content))
         self.key = hash(tuple(self.chunks))
 
+    def __iter__(self) -> Iterator[Chunk]:
+            yield from self.chunks
+
     def get_key(self) -> int:
         return self.key
 
@@ -23,6 +26,6 @@ class ChunkList:
         return cls(chunks=[
             Chunk.from_chunk_data(ChunkData.model_validate(chunk))
             for chunk in Logger.progress(
-                cast(list[Chunk], ResultManager.read_result(chunk_path)), "Loading chunks"
+                ResultManager.read_result(chunk_path), "Loading chunks"
             )
         ])

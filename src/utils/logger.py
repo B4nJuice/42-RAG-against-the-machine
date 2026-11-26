@@ -16,6 +16,14 @@ class LogLevel(Enum):
     FATAL = [[Colors.MAGENTA, Colors.BOLD], "[FATAL]"]
 
 
+class _ProgressBar(tqdm):
+
+    def close(self) -> None:
+        if not self.disable and self.leave is not False:
+            self.bar_format = "{desc}: done in {elapsed}"
+        super().close()
+
+
 class Logger:
     @staticmethod
     def _label(log_level: LogLevel) -> str:
@@ -39,9 +47,20 @@ class Logger:
                 desc: str = "",
                 **kwargs: Any
             ) -> Iterable[T]:
-        return tqdm(
-            iterable,
-            desc=f"{Logger._label(LogLevel.DEBUG)} {desc}",
+        return Logger._bar(iterable, desc=desc, **kwargs)
+
+    @staticmethod
+    def _bar(*args: Any, desc: str | None = "", **kwargs: Any) -> tqdm:
+        kwargs.pop("disable", None)
+        return _ProgressBar(
+            *args,
+            desc=f"{Logger._label(LogLevel.DEBUG)} {desc or ''}",
             disable=not Logger._debug_enabled(),
             **kwargs
         )
+
+    @staticmethod
+    def hook_transformers() -> None:
+        from transformers.utils import logging as hf_logging
+
+        hf_logging.set_tqdm_hook(lambda _factory, args, kwargs: Logger._bar(*args, **kwargs))

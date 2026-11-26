@@ -4,6 +4,8 @@ from collections import Counter
 from functools import cache
 from typing import cast, override
 
+from torch import Tensor
+
 from src.utils.models import ChunkData, MinimalSource
 
 
@@ -12,6 +14,7 @@ class Chunk:
     content: str
     start_index: int
     end_index: int
+    tensor: Tensor | None
 
     def __init__(
                 self,
@@ -24,6 +27,10 @@ class Chunk:
         self.content = content
         self.start_index = start_index
         self.end_index = end_index
+        self.tensor = None
+
+    def set_tensor(self, tensor: Tensor) -> None:
+        self.tensor = tensor
 
     def _key(self) -> tuple[str, int, int, str]:
         return (self.file_path, self.start_index, self.end_index, self.content)

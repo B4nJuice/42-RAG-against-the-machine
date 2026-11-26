@@ -4,9 +4,9 @@ from math import log
 import numpy as np
 
 from src.chunking.chunk import Chunk
+from src.chunking.chunk_list import ChunkList
 from src.utils.logger import Logger, LogLevel
 from src.utils.models import (
-    ChunkData,
     MinimalSearchResults,
     StudentSearchResults,
 )
@@ -15,7 +15,7 @@ from src.utils.terminal import Colors, TerminalStyler
 
 
 class BM25:
-    chunks: list[Chunk]
+    chunks: ChunkList
     k: float
     b: float
     l: float
@@ -30,7 +30,7 @@ class BM25:
 
     def __init__(
         self,
-        chunks: list[Chunk],
+        chunks: ChunkList,
         k: float = 1.2,
         b: float = 0.75,
         l: float = 1,
@@ -47,7 +47,7 @@ class BM25:
         self.delta = delta
 
         self.avg_len = 1.0
-        self.n_chunks = len(chunks)
+        self.n_chunks = len(chunks.chunks)
 
         self.inverted_index = {}
 
@@ -60,12 +60,7 @@ class BM25:
 
     @classmethod
     def from_file(cls, chunk_path: str) -> 'BM25':
-        return cls(chunks=[
-            Chunk.from_chunk_data(ChunkData.model_validate(chunk))
-            for chunk in Logger.progress(
-                ResultManager.read_result(chunk_path), "Loading chunks"
-            )
-        ])
+        return cls(chunks=ChunkList.from_file(chunk_path))
 
     def search(
                 self,
@@ -113,13 +108,11 @@ class BM25:
     def compute_stats(self) -> None:
         total_len = 0
 
-        key = hash(tuple(self.chunks))
-
-        if self.stats_cache.get(key):
+        if self.stats_cache.get(self.chunks.get_key()):
             return
 
         for i, chunk in enumerate(Logger.progress(
-                    self.chunks, "Computing BM25 stats", leave=False
+                    self.chunks.chunks, "Computing BM25 stats", leave=False
                 )):
             self.global_df.update(chunk.df.keys())
             total_len += chunk.len
@@ -134,11 +127,11 @@ class BM25:
 
         self._compute_parameter_stats()
 
-        self.stats_cache[key] = True
+        self.stats_cache[self.chunks.get_key()] = True
 
     def _compute_parameter_stats(self) -> None:
         lengths = np.array(
-            [chunk.len for chunk in self.chunks],
+            [chunk.len for chunk in self.chunks.chunks],
             dtype=np.float32,
         )
 
@@ -205,4 +198,4 @@ class BM25:
             np.argsort(scores[indices])[::-1]
         ]
 
-        return [self.chunks[i] for i in indices]
+        return [self.chunks.chunks[i] for i in indices]
